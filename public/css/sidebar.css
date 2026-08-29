@@ -1,0 +1,133 @@
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100%;
+  padding: 22px 16px;
+  overflow: hidden auto;
+  flex: 0 0 var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  transition: width 220ms ease, flex-basis 220ms ease, padding 220ms ease, opacity 160ms ease;
+  scrollbar-width: thin;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  flex-basis: 0;
+  padding-right: 0;
+  padding-left: 0;
+  opacity: 0;
+  border-right: 0;
+}
+
+.sidebar-heading {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px 18px;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.eyebrow {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.4px;
+}
+
+.sidebar h2 {
+  margin-top: 3px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.sidebar-count {
+  display: grid;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  place-items: center;
+  color: var(--primary-dark);
+  background: #e9e8ff;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.library-state {
+  min-height: 34px;
+  padding: 15px 7px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.book-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.book-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  padding: 10px;
+  color: var(--text-primary);
+  background: var(--item-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.book-item:hover {
+  background: var(--item-hover);
+  border-color: #d9d8ff;
+  transform: translateX(2px);
+}
+
+.book-item.active {
+  color: #fff;
+  background: var(--item-active);
+  box-shadow: 0 5px 14px rgba(88, 80, 236, 0.25);
+}
+
+.book-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: var(--primary-dark);
+  background: #e7e7ff;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.book-icon.epub {
+  color: #047857;
+  background: #d8f6eb;
+}
+
+.book-item.active .book-icon {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.book-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.book-arrow {
+  color: currentColor;
+  opacity: 0.45;
+  font-size: 20px;
+  line-height: 1;
+}

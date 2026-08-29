@@ -1,0 +1,119 @@
+.viewer {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--viewer-bg);
+}
+
+.empty-state {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.68);
+  text-align: center;
+}
+
+.empty-icon {
+  color: #a7a4ff;
+  font-size: 68px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.empty-state h2 {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.empty-state p {
+  font-size: 13px;
+}
+
+.empty-state code {
+  color: #c4c2ff;
+}
+
+#pdf-frame, #pdf-canvas-container {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#pdf-frame.show {
+  display: block;
+  border: 0;
+  background: #fff;
+}
+
+#pdf-canvas-container.show {
+  display: block;
+  overflow: auto;
+  padding: 24px 12px 48px;
+  background: var(--viewer-bg);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.pdf-page-shell {
+  width: min(100%, 820px);
+  min-height: 240px;
+  margin: 0 auto 18px;
+  position: relative;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: var(--shadow-lg);
+  contain: layout paint;
+}
+
+.pdf-page-shell canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.page-number {
+  position: absolute;
+  inset: 50% 0 auto;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 12px;
+  transform: translateY(-50%);
+}
+
+.reader-loading, .reader-error {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.reader-loading::before {
+  width: 25px;
+  height: 25px;
+  margin-right: 9px;
+  border: 3px solid rgba(88, 80, 236, 0.18);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  content: '';
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

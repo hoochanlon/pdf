@@ -1,0 +1,38 @@
+.sidebar, #pdf-canvas-container, .epub-container, .epub-toc-list {
+  scrollbar-color: rgba(88, 80, 236, 0.34) transparent;
+}
+
+.sidebar::-webkit-scrollbar, #pdf-canvas-container::-webkit-scrollbar,
+.epub-container::-webkit-scrollbar, .epub-toc-list::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.sidebar::-webkit-scrollbar-thumb, #pdf-canvas-container::-webkit-scrollbar-thumb,
+.epub-container::-webkit-scrollbar-thumb, .epub-toc-list::-webkit-scrollbar-thumb {
+  background: rgba(88, 80, 236, 0.34);
+  border-radius: 99px;
+}
+
+button:focus-visible, .book-item:focus-visible {
+  outline: 2px solid #8b87ff;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  position: absolute;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .book-item:active, .reader-btn:active, .header-btn:active {
+    transform: scale(0.97);
+  }
+}

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Local book files and runtime uploads
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Build and test output
+coverage/
+dist/
+build/

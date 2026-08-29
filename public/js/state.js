@@ -1,0 +1,28 @@
+// 全局状态管理
+export const state = {
+  book: null,
+  rendition: null,
+  pdf: null,
+  pdfLoading: null,
+  pdfUrl: null,
+  activeFile: null,
+  requestId: 0,
+  pdfObserver: null,
+  pdfResizeTimer: null,
+  pdfViewportWidth: 0,
+  pdfRenderTasks: new Map(),
+  epubMode: 'scroll',
+  epubLocation: null,
+  epubCurrentPage: 0,
+  epubTotalPages: 0,
+  epubCurrentChapter: -1,
+  epubLocationsReady: false,
+  epubChapters: [],
+  epubStatus: 'idle',
+  epubRenderToken: 0,
+  epubUrl: null,
+  epubResizeObservers: new Set(),
+  epubScrollHandler: null,
+  epubScrollFrame: 0,
+  renderMode: null
+};
