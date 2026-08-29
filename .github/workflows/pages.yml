@@ -42,7 +42,7 @@ jobs:
           ]
 
           Path('public/books.json').write_text(
-              json.dumps(books, ensure_ascii=False, indent=2) + '\\n',
+              json.dumps(books, ensure_ascii=False, indent=2) + '\n',
               encoding='utf-8'
           )
           PY

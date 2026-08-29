@@ -19,7 +19,10 @@ async function loadBookList() {
   const list = $('#book-list');
   const status = $('#library-state');
   try {
-    const response = await fetch(bookListUrl(), { headers: { Accept: 'application/json' } });
+    const response = await fetch(bookListUrl(), {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const files = await response.json();
     $('#book-count').textContent = `${files.length} 本书`;
