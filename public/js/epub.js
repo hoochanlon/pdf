@@ -51,43 +51,69 @@ function cfiValue(cfi) {
   return typeof cfi === 'string' ? cfi : cfi?.toString?.() || '';
 }
 
-function installEPUBStyles(contents) {
-  contents.addStylesheetRules({
-    html: {
-      height: 'auto !important',
-      'min-height': '100% !important',
-      overflow: 'visible !important'
-    },
-    body: {
-      'font-family': '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif !important',
-      'font-size': 'clamp(16px, 1.15vw, 19px) !important',
-      'line-height': '1.85 !important',
-      color: '#263247 !important',
-      padding: 'clamp(24px, 5vw, 72px) clamp(18px, 7vw, 96px) !important',
-      margin: '0 auto !important',
-      'max-width': '820px !important',
-      background: '#fffdf9 !important',
-      overflow: 'visible !important',
-      'touch-action': state.epubMode === 'paginated' ? 'none !important' : 'auto !important',
-      'user-select': state.epubMode === 'paginated' ? 'none !important' : 'text !important',
-      '-webkit-user-select': state.epubMode === 'paginated' ? 'none !important' : 'text !important',
-      '-webkit-touch-callout': state.epubMode === 'paginated' ? 'none !important' : 'default !important'
-    },
-    'img, svg, video': { 'max-width': '100% !important', height: 'auto !important' },
-    'p, li, blockquote': { 'overflow-wrap': 'break-word !important' },
-    'h1, h2, h3, h4': { 'line-height': '1.35 !important', 'margin-top': '1.6em !important' }
-  });
+// 排版基础：两种阅读模式共享，只管字体与配色，不干预布局。
+const CONTENT_TYPOGRAPHY = {
+  'font-family': '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif !important',
+  'font-size': 'clamp(16px, 1.15vw, 19px) !important',
+  'line-height': '1.85 !important',
+  color: '#263247 !important',
+  background: '#fffdf9 !important'
+};
 
-  // 保持每个章节 iframe 的高度，但不拦截 iframe 的原生滚动事件。
+const SHARED_CONTENT_RULES = {
+  'img, svg, video': { 'max-width': '100% !important', height: 'auto !important' },
+  'p, li, blockquote': { 'overflow-wrap': 'break-word !important' },
+  'h1, h2, h3, h4': { 'line-height': '1.35 !important', 'margin-top': '1.6em !important' }
+};
+
+// 连续滚动模式：长文档流式排版，由我们接管尺寸。
+const SCROLL_CONTENT_RULES = {
+  html: {
+    height: 'auto !important',
+    'min-height': '100% !important',
+    overflow: 'visible !important'
+  },
+  body: {
+    ...CONTENT_TYPOGRAPHY,
+    padding: 'clamp(24px, 5vw, 72px) clamp(18px, 7vw, 96px) !important',
+    margin: '0 auto !important',
+    'max-width': '820px !important',
+    overflow: 'visible !important',
+    'user-select': 'text !important',
+    '-webkit-user-select': 'text !important',
+    '-webkit-touch-callout': 'default !important'
+  },
+  ...SHARED_CONTENT_RULES
+};
+
+// 分页模式：页面切分完全交给 epub.js 的列排版，任何尺寸/溢出覆盖都会导致列错位。
+const PAGINATED_CONTENT_RULES = {
+  body: {
+    ...CONTENT_TYPOGRAPHY,
+    'touch-action': 'none !important',
+    'user-select': 'none !important',
+    '-webkit-user-select': 'none !important',
+    '-webkit-touch-callout': 'none !important'
+  },
+  ...SHARED_CONTENT_RULES
+};
+
+function installEPUBStyles(contents) {
+  const paginated = state.epubMode === 'paginated';
+  contents.addStylesheetRules(paginated ? PAGINATED_CONTENT_RULES : SCROLL_CONTENT_RULES);
+
   try {
     const frameWindow = contents.window;
     const frameDocument = contents.document;
     const frame = frameWindow.frameElement;
     if (!frame) return;
-    installEPUBSwipeNavigation(frameDocument);
-    frame.style.touchAction = state.epubMode === 'paginated' ? 'none' : '';
-    frame.style.userSelect = state.epubMode === 'paginated' ? 'none' : '';
-    frame.style.webkitUserSelect = state.epubMode === 'paginated' ? 'none' : '';
+    installEPUBNavigation(frameDocument);
+    frame.style.touchAction = paginated ? 'none' : '';
+    frame.style.userSelect = paginated ? 'none' : '';
+    frame.style.webkitUserSelect = paginated ? 'none' : '';
+    if (paginated) return;
+
+    // 仅滚动模式需要把 iframe 拉到内容总高度；分页模式下必须保持 100% 视口。
     const syncFrameHeight = () => {
       const root = frameDocument.documentElement;
       const body = frameDocument.body;
@@ -113,9 +139,18 @@ function installEPUBStyles(contents) {
   }
 }
 
-let lastEPUBSwipeAt = 0;
+let lastEPUBNavAt = 0;
 
-function installEPUBSwipeNavigation(frameDocument) {
+// 统一翻页节流：键盘、点击分区、滑动共用一个时间窗口，避免一次手势翻多页。
+function requestEPUBNav(direction) {
+  const now = Date.now();
+  if (now - lastEPUBNavAt < 320) return;
+  lastEPUBNavAt = now;
+  void (direction < 0 ? epubPrev() : epubNext());
+}
+
+// 豆瓣式交互：分页模式下，iframe 内支持左右键、点击左右分区、横滑三种翻页方式。
+function installEPUBNavigation(frameDocument) {
   const frameWindow = frameDocument.defaultView;
   let gesture = null;
   let suppressClickUntil = 0;
@@ -125,14 +160,23 @@ function installEPUBSwipeNavigation(frameDocument) {
   const isHorizontalSwipe = (distanceX, distanceY) => (
     Math.abs(distanceX) >= 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25
   );
+
+  // 点击分区：左 1/4 上一页，右 3/4 下一页（主流阅读器的默认习惯）。
+  const isNavClick = (event) => state.epubMode === 'paginated'
+    && !isInteractiveTarget(event.target)
+    && Date.now() >= suppressClickUntil;
+  const navigateByClickX = (clientX) => {
+    const edge = Math.min(frameWindow.innerWidth * 0.25, 140);
+    if (clientX <= edge) requestEPUBNav(-1);
+    else if (clientX >= frameWindow.innerWidth - edge) requestEPUBNav(1);
+  };
+
   const navigateBySwipe = (distanceX, distanceY, event, target) => {
     if (!isHorizontalSwipe(distanceX, distanceY) || isInteractiveTarget(target)) return;
-    if (Date.now() - lastEPUBSwipeAt < 360) return;
-
-    lastEPUBSwipeAt = Date.now();
-    suppressClickUntil = lastEPUBSwipeAt + 360;
+    suppressClickUntil = Date.now() + 360;
     if (event.cancelable) event.preventDefault();
-    void (distanceX < 0 ? epubNext() : epubPrev());
+    // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
+    requestEPUBNav(distanceX < 0 ? -1 : 1);
   };
   const suppressDraggedClick = (event) => {
     if (Date.now() >= suppressClickUntil) return;
@@ -140,6 +184,16 @@ function installEPUBSwipeNavigation(frameDocument) {
     event.stopPropagation();
     suppressClickUntil = 0;
   };
+
+  // iframe 内键盘事件不会冒泡到主文档，需要单独接管。
+  frameDocument.addEventListener('keydown', (event) => {
+    if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
+    const navKeys = { ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1, ' ': 1 };
+    const direction = navKeys[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    requestEPUBNav(direction);
+  });
 
   if ('PointerEvent' in frameWindow) {
     const reset = () => { gesture = null; };
@@ -151,26 +205,31 @@ function installEPUBSwipeNavigation(frameDocument) {
         id: event.pointerId,
         x: event.clientX,
         y: event.clientY,
-        target: event.target
+        target: event.target,
+        dragged: false
       };
       event.target?.setPointerCapture?.(event.pointerId);
     }, { passive: true });
     frameDocument.addEventListener('pointermove', (event) => {
       if (!gesture || event.pointerId !== gesture.id) return;
+      // 桌面端鼠标拖动必须立即阻止默认行为（文本选择），不能等到达阈值才 preventDefault。
+      if (event.cancelable) event.preventDefault();
       const distanceX = event.clientX - gesture.x;
       const distanceY = event.clientY - gesture.y;
-      if (isHorizontalSwipe(distanceX, distanceY) && event.cancelable) event.preventDefault();
+      if (isHorizontalSwipe(distanceX, distanceY)) gesture.dragged = true;
     }, { passive: false });
     frameDocument.addEventListener('pointerup', (event) => {
       if (!gesture || event.pointerId !== gesture.id) return;
       const current = gesture;
       reset();
-      navigateBySwipe(
-        event.clientX - current.x,
-        event.clientY - current.y,
-        event,
-        current.target
-      );
+      const distanceX = event.clientX - current.x;
+      const distanceY = event.clientY - current.y;
+      if (isHorizontalSwipe(distanceX, distanceY)) {
+        navigateBySwipe(distanceX, distanceY, event, current.target);
+        return;
+      }
+      // 未拖动的点按（含触屏轻点）按分区翻页。
+      if (!current.dragged && isNavClick(event)) navigateByClickX(event.clientX);
     }, { passive: false });
     frameDocument.addEventListener('pointercancel', reset, { passive: true });
   } else {
@@ -190,17 +249,42 @@ function installEPUBSwipeNavigation(frameDocument) {
       const touch = event.changedTouches[0];
       const current = touchStart;
       resetTouch();
-      navigateBySwipe(
-        touch.clientX - current.x,
-        touch.clientY - current.y,
-        event,
-        current.target
-      );
+      const distanceX = touch.clientX - current.x;
+      const distanceY = touch.clientY - current.y;
+      if (isHorizontalSwipe(distanceX, distanceY)) {
+        navigateBySwipe(distanceX, distanceY, event, current.target);
+        return;
+      }
+      if (isNavClick(event)) navigateByClickX(touch.clientX);
     }, { passive: false });
     frameDocument.addEventListener('touchcancel', resetTouch, { passive: true });
   }
 
   frameDocument.addEventListener('click', suppressDraggedClick, true);
+
+  // 触控板横向滑动：wheel 事件的 deltaX 累积超过阈值时翻页（两指/三指滑动）。
+  let wheelDeltaX = 0;
+  let wheelResetTimer = null;
+  frameDocument.addEventListener('wheel', (event) => {
+    if (state.epubMode !== 'paginated') return;
+    const { deltaX, deltaY } = event;
+    // 只处理明显的横向滚动：横向分量 > 垂直分量的 1.2 倍（触控板横滑）
+    if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+    
+    clearTimeout(wheelResetTimer);
+    wheelDeltaX += deltaX;
+    
+    // 累积横向增量超过 40 触发翻页（物理书翻页习惯：向左滑 = 下一页，向右滑 = 上一页）
+    const threshold = 40;
+    if (Math.abs(wheelDeltaX) >= threshold) {
+      if (event.cancelable) event.preventDefault();
+      requestEPUBNav(wheelDeltaX > 0 ? 1 : -1);
+      wheelDeltaX = 0;
+    } else {
+      // 300ms 内没有新的 wheel 事件，重置累积值（更宽容的滑动停顿窗口）
+      wheelResetTimer = setTimeout(() => { wheelDeltaX = 0; }, 300);
+    }
+  }, { passive: false });
 }
 
 export async function renderEPUB(url, filename, requestId, mode = state.epubMode, restoreLocation = null) {
