@@ -32,14 +32,12 @@ function setEPUBStatus(status, title, detail = '') {
 function setEPUBPage(current, total) {
   const input = $('#epub-page-input');
   const output = $('#epub-page-total');
-  const location = $('#epub-location');
   const ready = state.epubLocationsReady && total > 0;
   const safeCurrent = ready ? Math.max(1, current) : current;
   input.disabled = !ready;
   input.max = ready ? String(total) : '';
   input.value = safeCurrent > 0 ? String(safeCurrent) : '';
   output.textContent = ready ? String(total) : '—';
-  location.textContent = ready ? `第 ${safeCurrent} / ${total} 页` : '页码生成中…';
 }
 
 function updateEPUBModeControl() {
@@ -160,12 +158,19 @@ function installEPUBNavigation(frameDocument) {
   const isHorizontalSwipe = (distanceX, distanceY) => (
     Math.abs(distanceX) >= 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25
   );
+  const closeTOCBeforeNavigation = () => {
+    const panel = $('#epub-toc-panel');
+    if (!panel.classList.contains('show')) return false;
+    toggleTOC(false);
+    return true;
+  };
 
   // 点击分区：左 1/4 上一页，右 3/4 下一页（主流阅读器的默认习惯）。
   const isNavClick = (event) => state.epubMode === 'paginated'
     && !isInteractiveTarget(event.target)
     && Date.now() >= suppressClickUntil;
   const navigateByClickX = (clientX) => {
+    if (closeTOCBeforeNavigation()) return;
     const edge = Math.min(frameWindow.innerWidth * 0.25, 140);
     if (clientX <= edge) requestEPUBNav(-1);
     else if (clientX >= frameWindow.innerWidth - edge) requestEPUBNav(1);
@@ -173,6 +178,7 @@ function installEPUBNavigation(frameDocument) {
 
   const navigateBySwipe = (distanceX, distanceY, event, target) => {
     if (!isHorizontalSwipe(distanceX, distanceY) || isInteractiveTarget(target)) return;
+    if (closeTOCBeforeNavigation()) return;
     suppressClickUntil = Date.now() + 360;
     if (event.cancelable) event.preventDefault();
     // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
@@ -260,6 +266,9 @@ function installEPUBNavigation(frameDocument) {
     frameDocument.addEventListener('touchcancel', resetTouch, { passive: true });
   }
 
+  frameDocument.addEventListener('click', (event) => {
+    if (!isInteractiveTarget(event.target)) toggleTOC(false);
+  });
   frameDocument.addEventListener('click', suppressDraggedClick, true);
 
   // 触控板横向滑动：wheel 事件的 deltaX 累积超过阈值时翻页（两指/三指滑动）。
@@ -267,6 +276,10 @@ function installEPUBNavigation(frameDocument) {
   let wheelResetTimer = null;
   frameDocument.addEventListener('wheel', (event) => {
     if (state.epubMode !== 'paginated') return;
+    if (closeTOCBeforeNavigation()) {
+      wheelDeltaX = 0;
+      return;
+    }
     const { deltaX, deltaY } = event;
     // 只处理明显的横向滚动：横向分量 > 垂直分量的 1.2 倍（触控板横滑）
     if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
@@ -405,7 +418,6 @@ async function generateEPUBLocations(book, requestId, renderToken) {
         console.warn('EPUB 页码生成失败:', error);
         state.epubStatus = 'ready';
         setEPUBPage(0, 0);
-        $('#epub-location').textContent = '页码不可用';
       }
     }
   };

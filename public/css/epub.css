@@ -20,10 +20,10 @@
   gap: 12px;
   padding: 8px 14px;
   color: #fff;
-  background: linear-gradient(105deg, #5750d5 0%, #443eb3 58%, #373194 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.24);
-  border-bottom: 1px solid rgba(31, 27, 100, 0.62);
-  box-shadow: 0 4px 14px rgba(39, 33, 125, 0.28);
+  background: #3C3C3C;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 2;
 }
 
@@ -291,9 +291,9 @@
 .epub-toc-panel {
   display: flex;
   width: min(360px, 88vw);
-  height: 100%;
+  height: calc(100% - var(--header-height));
   position: fixed;
-  top: 0;
+  top: var(--header-height);
   right: 0;
   z-index: 60;
   flex-direction: column;
@@ -314,20 +314,8 @@
   justify-content: space-between;
   padding: 0 16px;
   color: #fff;
-  background: var(--header-bg);
-}
-
-.toc-close {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.13);
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 22px;
+  background: #3C3C3C;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 .epub-toc-list {

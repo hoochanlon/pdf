@@ -160,7 +160,14 @@ $('#epub-page-input').addEventListener('keydown', (event) => {
 });
 $('#epub-mode-select').addEventListener('change', (event) => void setEPUBMode(event.target.value));
 $('#epub-toc').addEventListener('click', () => toggleTOC());
-$('#epub-toc-close').addEventListener('click', () => toggleTOC(false));
+
+// 点击目录浮层外的空白区域收起目录。
+document.addEventListener('click', (event) => {
+  const panel = $('#epub-toc-panel');
+  if (!panel.classList.contains('show')) return;
+  if (event.target.closest('#epub-toc-panel, #epub-toc')) return;
+  toggleTOC(false);
+});
 
 // 初始化
 initSidebar();

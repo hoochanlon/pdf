@@ -13,7 +13,10 @@
 <body>
   <header class="app-header">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">▤</div>
+      <button class="header-btn sidebar-toggle" id="toggle-btn" type="button"
+        title="收起书架" aria-label="收起书架" aria-controls="sidebar" aria-expanded="true" data-sidebar-state="expanded">
+        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+      </button>
       <div>
         <h1>在线电子书阅读器</h1>
         <p>在浏览器中阅读你的 PDF 与 EPUB</p>
@@ -21,10 +24,6 @@
     </div>
     <div class="header-actions">
       <span class="book-count" id="book-count">0 本书</span>
-      <button class="header-btn sidebar-toggle" id="toggle-btn" type="button"
-        title="收起书架" aria-label="收起书架" aria-controls="sidebar" aria-expanded="true" data-sidebar-state="expanded">
-        <span class="sidebar-toggle-icon" aria-hidden="true"></span>
-      </button>
     </div>
   </header>
 
@@ -57,13 +56,13 @@
       <div class="epub-reader" id="epub-reader">
         <div class="epub-toolbar">
           <div class="epub-nav-group">
+            <button class="reader-btn" id="epub-toc" type="button" title="打开目录" aria-label="打开目录">☰</button>
             <button class="reader-btn reader-btn-secondary" id="epub-chapter-prev" type="button" title="上一章" aria-label="上一章">|‹</button>
             <button class="reader-btn" id="epub-prev" type="button" title="上一页" aria-label="上一页">‹</button>
           </div>
           <div class="epub-heading">
             <span class="reader-type">EPUB</span>
             <strong id="epub-title">正在加载…</strong>
-            <span class="epub-location" id="epub-location" aria-live="polite">第 — / — 页</span>
           </div>
           <div class="epub-tools">
             <label class="epub-mode-control" for="epub-mode-select">
@@ -81,7 +80,6 @@
             </div>
             <button class="reader-btn" id="epub-next" type="button" title="下一页" aria-label="下一页">›</button>
             <button class="reader-btn reader-btn-secondary" id="epub-chapter-next" type="button" title="下一章" aria-label="下一章">›|</button>
-            <button class="reader-btn" id="epub-toc" type="button" title="打开目录" aria-label="打开目录">☰</button>
           </div>
         </div>
         <div class="epub-container" id="epub-container" aria-label="EPUB 阅读内容"></div>
@@ -97,13 +95,12 @@
         </div>
       </div>
 
-      <div class="epub-toc-panel" id="epub-toc-panel" aria-hidden="true">
-        <div class="epub-toc-header">
-          <strong>目录</strong>
-          <button class="toc-close" id="epub-toc-close" type="button" aria-label="关闭目录">×</button>
+        <div class="epub-toc-panel" id="epub-toc-panel" aria-hidden="true">
+          <div class="epub-toc-header">
+            <strong>目录</strong>
+          </div>
+          <ul class="epub-toc-list" id="epub-toc-list"></ul>
         </div>
-        <ul class="epub-toc-list" id="epub-toc-list"></ul>
-      </div>
     </section>
   </main>
 
