@@ -38,7 +38,7 @@ export function getBookReadingProgress(file) {
 export function markBookOpened(file) {
   const current = records[file] || {};
   const next = {
-    status: current.status === 'finished' ? 'finished' : 'reading',
+    status: 'reading',
     progress: clampProgress(current.progress),
     lastOpenedAt: Date.now()
   };
