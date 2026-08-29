@@ -1,11 +1,7 @@
 # Dependencies
 node_modules/
 
-# Book files are deployment inputs; unsupported files remain ignored.
-uploads/*
-!uploads/.gitkeep
-!uploads/*.pdf
-!uploads/*.epub
+# Book files under public/uploads are deployment inputs and remain tracked.
 
 # Logs
 *.log

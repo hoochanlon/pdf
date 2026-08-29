@@ -5,7 +5,7 @@ const fs = require('fs');
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = path.join(publicDir, 'uploads');
 
 async function listBooks() {
   const files = await fs.promises.readdir(uploadsDir);
@@ -30,8 +30,7 @@ app.get('/api/books', async (req, res) => {
   }
 });
 
-// 本地预览直接读取 uploads；线上部署产物使用 /books/ 静态目录。
-app.use('/books', express.static(uploadsDir));
+// 本地和线上都从 public/uploads 读取书籍。
 app.use(express.static(publicDir));
 
 // 兼容旧接口
