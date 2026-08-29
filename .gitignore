@@ -1,9 +1,11 @@
 # Dependencies
 node_modules/
 
-# Local book files and runtime uploads
+# Book files are deployment inputs; unsupported files remain ignored.
 uploads/*
 !uploads/.gitkeep
+!uploads/*.pdf
+!uploads/*.epub
 
 # Logs
 *.log

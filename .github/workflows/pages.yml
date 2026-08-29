@@ -27,6 +27,34 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Build static book catalog
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          source = Path('uploads')
+          target = Path('public/books')
+          target.mkdir(parents=True, exist_ok=True)
+
+          for item in target.iterdir():
+              if item.name != '.gitkeep' and item.is_file():
+                  item.unlink()
+
+          books = []
+          for item in sorted(source.iterdir(), key=lambda path: path.name.casefold()):
+              if item.is_file() and item.suffix.lower() in {'.pdf', '.epub'}:
+                  shutil.copy2(item, target / item.name)
+                  books.append(item.name)
+
+          Path('public/books.json').write_text(
+              json.dumps(books, ensure_ascii=False, indent=2) + '\\n',
+              encoding='utf-8'
+          )
+          PY
+
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
