@@ -21,10 +21,6 @@
     display: none;
   }
 
-  .sidebar-resizer {
-    display: none;
-  }
-
   .sidebar {
     width: var(--sidebar-width);
     flex-basis: var(--sidebar-width);

@@ -11,6 +11,8 @@ export const state = {
   pdfResizeTimer: null,
   pdfViewportWidth: 0,
   pdfRenderTasks: new Map(),
+  pdfScrollHandler: null,
+  pdfScrollFrame: 0,
   epubMode: 'scroll',
   epubLocation: null,
   epubCurrentPage: 0,

@@ -36,11 +36,53 @@
         </div>
         <span class="sidebar-count" id="sidebar-count">0</span>
       </div>
+      <div class="library-tools">
+        <div class="library-search-row">
+          <label class="library-search">
+            <span class="sr-only">搜索书籍</span>
+            <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+          </label>
+          <button class="library-filter-toggle" id="library-filter-toggle" type="button"
+            aria-expanded="false" aria-controls="library-filter-panel">
+            <span aria-hidden="true">☷</span>
+            <span>筛选</span>
+            <span class="library-filter-count" id="library-filter-count" aria-hidden="true">0</span>
+          </button>
+          <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
+        </div>
+        <div class="library-filter-panel" id="library-filter-panel" hidden>
+          <div class="library-filters">
+            <label class="library-filter library-filter-author">
+              <span>作者</span>
+              <select id="book-author-filter" aria-label="按作者筛选">
+                <option value="">全部作者</option>
+              </select>
+            </label>
+            <label class="library-filter">
+              <span>格式</span>
+              <select id="book-format-filter" aria-label="按文件格式筛选">
+                <option value="">全部格式</option>
+              </select>
+            </label>
+            <label class="library-filter">
+              <span>语言</span>
+              <select id="book-language-filter" aria-label="按语言筛选">
+                <option value="">全部语言</option>
+              </select>
+            </label>
+            <label class="library-filter library-filter-status">
+              <span>阅读状态</span>
+              <select id="book-status-filter" aria-label="按阅读状态筛选">
+                <option value="">全部状态</option>
+              </select>
+            </label>
+          </div>
+        </div>
+      </div>
       <div class="library-state" id="library-state" role="status">正在读取 books.json…</div>
       <ul class="book-list" id="book-list"></ul>
     </aside>
 
-    <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-label="调整书籍列表宽度" aria-orientation="vertical" tabindex="0"></div>
     <div class="overlay" id="overlay"></div>
 
     <section class="viewer" aria-label="阅读区域">

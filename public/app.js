@@ -1,6 +1,6 @@
 // 主入口文件
 import { state } from './js/state.js';
-import { $, bookListUrl, fileUrl, isEpub, isMobile } from './js/utils.js';
+import { $, fileUrl, isEpub, isMobile } from './js/utils.js';
 import { renderMobilePDF } from './js/pdf.js';
 import {
   renderEPUB,
@@ -14,50 +14,18 @@ import {
   toggleTOC
 } from './js/epub.js';
 import { initSidebar, closeSidebar } from './js/sidebar.js';
-
-async function loadBookList() {
-  const list = $('#book-list');
-  const status = $('#library-state');
-  try {
-    const response = await fetch(bookListUrl(), {
-      cache: 'no-store',
-      headers: { Accept: 'application/json' }
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const files = await response.json();
-    $('#book-count').textContent = `${files.length} 本书`;
-    $('#sidebar-count').textContent = files.length;
-    status.textContent = files.length ? '选择一本书开始阅读' : 'uploads 中暂无 PDF 或 EPUB';
-    list.replaceChildren();
-
-    files.forEach((file) => {
-      const item = document.createElement('li');
-      const epub = isEpub(file);
-      item.className = 'book-item';
-      item.dataset.file = file;
-      item.setAttribute('role', 'button');
-      item.tabIndex = 0;
-      item.innerHTML = `<span class="book-icon ${epub ? 'epub' : ''}">${epub ? 'EPUB' : 'PDF'}</span><span class="book-name"></span><span class="book-arrow">›</span>`;
-      item.querySelector('.book-name').textContent = file;
-      item.title = file;
-      item.addEventListener('click', () => openBook(file, item));
-      item.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          openBook(file, item);
-        }
-      });
-      list.appendChild(item);
-    });
-  } catch (error) {
-    console.error('加载书籍列表失败:', error);
-    status.textContent = '书籍清单加载失败，请检查 books.json';
-  }
-}
+import { loadBookList } from './js/library.js';
+import { markBookOpened } from './js/reading.js';
 
 function clearReader() {
   state.requestId += 1;
   if (state.pdfObserver) state.pdfObserver.disconnect();
+  if (state.pdfScrollHandler) {
+    $('#pdf-canvas-container').removeEventListener('scroll', state.pdfScrollHandler);
+    state.pdfScrollHandler = null;
+  }
+  if (state.pdfScrollFrame) cancelAnimationFrame(state.pdfScrollFrame);
+  state.pdfScrollFrame = 0;
   state.pdfRenderTasks.forEach((task) => task.cancel());
   state.pdfRenderTasks.clear();
   if (state.pdfLoading) state.pdfLoading.destroy();
@@ -88,6 +56,7 @@ function openBook(filename, item) {
   document.querySelectorAll('.book-item').forEach((element) => element.classList.remove('active'));
   item.classList.add('active');
   state.activeFile = filename;
+  markBookOpened(filename);
   $('#empty-state').style.display = 'none';
   clearReader();
   const url = fileUrl(filename);
@@ -171,4 +140,4 @@ document.addEventListener('click', (event) => {
 
 // 初始化
 initSidebar();
-loadBookList();
+loadBookList(openBook);

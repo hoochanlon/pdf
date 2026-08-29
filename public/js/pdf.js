@@ -1,9 +1,30 @@
 // PDF 渲染模块
 import { state } from './state.js';
-import { $, isMobile } from './utils.js';
+import { $ } from './utils.js';
+import { markBookFinished, updateBookProgress } from './reading.js';
 
 const PDF_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER;
+
+// 移动端 PDF 使用容器滚动位置作为进度；桌面端由浏览器内置阅读器接管，无法可靠读取页码。
+function bindMobilePDFProgress(container, requestId) {
+  const checkProgress = () => {
+    state.pdfScrollFrame = 0;
+    if (requestId !== state.requestId || state.renderMode !== 'pdf-mobile' || !state.activeFile) return;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const progress = maxScrollTop === 0 ? 1 : container.scrollTop / maxScrollTop;
+    if (progress >= 1) markBookFinished(state.activeFile);
+    else updateBookProgress(state.activeFile, progress);
+  };
+  const handleScroll = () => {
+    if (state.pdfScrollFrame) return;
+    state.pdfScrollFrame = window.requestAnimationFrame(checkProgress);
+  };
+
+  state.pdfScrollHandler = handleScroll;
+  container.addEventListener('scroll', handleScroll, { passive: true });
+  window.requestAnimationFrame(checkProgress);
+}
 
 export async function renderMobilePDF(url, requestId) {
   if (!window.pdfjsLib) return showReaderError('PDF.js 加载失败，请刷新重试', 'pdf-mobile');
@@ -44,6 +65,7 @@ export async function renderMobilePDF(url, requestId) {
       });
     }, { root: container, rootMargin: '720px 0px', threshold: 0 });
     shells.forEach((shell) => state.pdfObserver.observe(shell));
+    bindMobilePDFProgress(container, requestId);
   } catch (error) {
     if (requestId === state.requestId) {
       console.error('PDF 渲染失败:', error);

@@ -52,6 +52,143 @@
   font-weight: 700;
 }
 
+.library-tools {
+  display: grid;
+  gap: 10px;
+  padding: 14px 6px 10px;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.library-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-search {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.library-filter-toggle, .library-reset {
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.library-filter-toggle {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  color: var(--text-secondary);
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.library-filter-toggle:hover, .library-filter-toggle:focus-visible,
+.library-filter-toggle.is-active {
+  color: var(--primary-dark);
+  background: #f0efff;
+  border-color: #b2afff;
+}
+
+.library-filter-count {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  place-items: center;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.library-filter-count[hidden] {
+  display: none;
+}
+
+.library-filter-panel {
+  padding-top: 1px;
+}
+
+.library-filter-panel[hidden] {
+  display: none;
+}
+
+.library-search input, .library-filter select {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  color: var(--text-primary);
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  outline: 0;
+  font-size: 11px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.library-search input {
+  padding-left: 12px;
+}
+
+.library-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.library-search input:focus, .library-filter select:focus {
+  border-color: #8b87ff;
+  box-shadow: 0 0 0 3px rgba(88, 80, 236, 0.12);
+}
+
+.library-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.library-filter {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.library-filter-author {
+  grid-column: 1 / -1;
+}
+
+.library-filter span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.library-filter select {
+  padding: 0 7px;
+  font-size: 10px;
+}
+
+.library-reset {
+  justify-self: end;
+  padding: 0;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.library-reset:disabled {
+  visibility: hidden;
+}
+
 .library-state {
   min-height: 34px;
   padding: 15px 7px 8px;
@@ -115,6 +252,13 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+.book-info {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
 .book-name {
   min-width: 0;
   flex: 1;
@@ -123,6 +267,19 @@
   line-height: 1.45;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.book-meta {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.book-item.active .book-meta {
+  color: rgba(255, 255, 255, 0.68);
 }
 
 .book-arrow {

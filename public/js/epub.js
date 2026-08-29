@@ -1,6 +1,7 @@
 // EPUB 渲染模块
 import { state } from './state.js';
 import { $ } from './utils.js';
+import { markBookFinished, updateBookProgress } from './reading.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
@@ -300,8 +301,54 @@ function installEPUBNavigation(frameDocument) {
   }, { passive: false });
 }
 
+function clearEPUBProgressTracking() {
+  const container = $('#epub-container');
+  if (state.epubScrollHandler) {
+    container.removeEventListener('scroll', state.epubScrollHandler);
+    state.epubScrollHandler = null;
+  }
+  if (state.epubScrollFrame) cancelAnimationFrame(state.epubScrollFrame);
+  state.epubScrollFrame = 0;
+}
+
+function bindEPUBScrollProgress(container, requestId) {
+  const checkProgress = () => {
+    state.epubScrollFrame = 0;
+    if (requestId !== state.requestId || state.epubMode !== 'scroll' || !state.activeFile) return;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const reachedEnd = container.scrollHeight > 0
+      && (maxScrollTop === 0 || container.scrollTop + container.clientHeight >= container.scrollHeight - 8);
+    const progress = maxScrollTop === 0 ? (reachedEnd ? 1 : 0) : container.scrollTop / maxScrollTop;
+    if (reachedEnd) markBookFinished(state.activeFile);
+    else updateBookProgress(state.activeFile, progress);
+  };
+  const handleScroll = () => {
+    if (state.epubScrollFrame) return;
+    state.epubScrollFrame = window.requestAnimationFrame(checkProgress);
+  };
+
+  clearEPUBProgressTracking();
+  state.epubScrollHandler = handleScroll;
+  container.addEventListener('scroll', handleScroll, { passive: true });
+  window.requestAnimationFrame(checkProgress);
+  window.setTimeout(checkProgress, 300);
+}
+
+function updateSavedEPUBProgress(location, progress) {
+  if (!state.activeFile || typeof progress !== 'number') return;
+  const end = location?.end;
+  let endProgress = end?.percentage;
+  if (typeof endProgress !== 'number' && state.epubLocationsReady && end?.cfi) {
+    endProgress = state.book.locations.percentageFromCfi(cfiValue(end.cfi));
+  }
+  const reachedEnd = location?.atEnd === true || end?.atEnd === true || endProgress >= 1;
+  if (reachedEnd) markBookFinished(state.activeFile);
+  else updateBookProgress(state.activeFile, progress);
+}
+
 export async function renderEPUB(url, filename, requestId, mode = state.epubMode, restoreLocation = null) {
   const container = $('#epub-container');
+  clearEPUBProgressTracking();
   const resumeLocation = cfiValue(restoreLocation);
   state.epubMode = mode;
   state.epubUrl = url;
@@ -351,6 +398,7 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
     await waitForStage(rendition.display(resumeLocation || undefined), '渲染 EPUB 内容');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     setEPUBStatus('ready');
+    if (mode === 'scroll') bindEPUBScrollProgress(container, requestId);
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);
     });
@@ -435,13 +483,14 @@ function updateEPUBLocation(location) {
     state.epubCurrentChapter = state.epubChapters.findIndex((chapter) => chapter.spineIndex === startIndex);
   }
 
-  let percentage = start.percentage;
-  if (typeof percentage !== 'number' && state.epubLocationsReady && cfi) {
-    percentage = state.book.locations.percentageFromCfi(cfi);
+  let progress = start.percentage;
+  if (typeof progress !== 'number' && state.epubLocationsReady && cfi) {
+    progress = state.book.locations.percentageFromCfi(cfi);
   }
-  if (typeof percentage === 'number') {
-    const progress = Math.max(0, Math.min(1, percentage));
+  if (typeof progress === 'number') {
+    progress = Math.max(0, Math.min(1, progress));
     $('#epub-progress-bar').style.width = `${progress * 100}%`;
+    updateSavedEPUBProgress(location, progress);
   }
 
   if (state.epubLocationsReady && cfi) {
@@ -520,6 +569,7 @@ export async function setEPUBMode(mode) {
 }
 
 export function resetEPUBState() {
+  clearEPUBProgressTracking();
   state.epubRenderToken += 1;
   state.epubLocation = null;
   state.epubCurrentPage = 0;
