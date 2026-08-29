@@ -68,7 +68,10 @@ function installEPUBStyles(contents) {
       'max-width': '820px !important',
       background: '#fffdf9 !important',
       overflow: 'visible !important',
-      'touch-action': state.epubMode === 'paginated' ? 'pan-y !important' : 'auto !important'
+      'touch-action': state.epubMode === 'paginated' ? 'none !important' : 'auto !important',
+      'user-select': state.epubMode === 'paginated' ? 'none !important' : 'text !important',
+      '-webkit-user-select': state.epubMode === 'paginated' ? 'none !important' : 'text !important',
+      '-webkit-touch-callout': state.epubMode === 'paginated' ? 'none !important' : 'default !important'
     },
     'img, svg, video': { 'max-width': '100% !important', height: 'auto !important' },
     'p, li, blockquote': { 'overflow-wrap': 'break-word !important' },
@@ -82,6 +85,9 @@ function installEPUBStyles(contents) {
     const frame = frameWindow.frameElement;
     if (!frame) return;
     installEPUBSwipeNavigation(frameDocument);
+    frame.style.touchAction = state.epubMode === 'paginated' ? 'none' : '';
+    frame.style.userSelect = state.epubMode === 'paginated' ? 'none' : '';
+    frame.style.webkitUserSelect = state.epubMode === 'paginated' ? 'none' : '';
     const syncFrameHeight = () => {
       const root = frameDocument.documentElement;
       const body = frameDocument.body;
@@ -110,36 +116,91 @@ function installEPUBStyles(contents) {
 let lastEPUBSwipeAt = 0;
 
 function installEPUBSwipeNavigation(frameDocument) {
-  let start = null;
-  const reset = () => { start = null; };
+  const frameWindow = frameDocument.defaultView;
+  let gesture = null;
+  let suppressClickUntil = 0;
 
-  frameDocument.addEventListener('touchstart', (event) => {
-    if (state.epubMode !== 'paginated' || event.touches.length !== 1) return;
-    const touch = event.touches[0];
-    start = { x: touch.clientX, y: touch.clientY };
-  }, { passive: true });
-
-  frameDocument.addEventListener('touchcancel', reset, { passive: true });
-  frameDocument.addEventListener('touchend', (event) => {
-    if (!start || state.epubMode !== 'paginated' || event.changedTouches.length !== 1) {
-      reset();
-      return;
-    }
-
-    const touch = event.changedTouches[0];
-    const horizontalDistance = touch.clientX - start.x;
-    const verticalDistance = touch.clientY - start.y;
-    reset();
-    if (Math.abs(horizontalDistance) < 56 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance) * 1.25) return;
-
-    const target = event.target?.nodeType === 1 ? event.target : null;
-    if (target?.closest('a, button, input, select, textarea') || frameDocument.getSelection()?.toString()) return;
+  const isInteractiveTarget = (target) => target?.nodeType === 1
+    && Boolean(target.closest('a, button, input, select, textarea'));
+  const isHorizontalSwipe = (distanceX, distanceY) => (
+    Math.abs(distanceX) >= 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25
+  );
+  const navigateBySwipe = (distanceX, distanceY, event, target) => {
+    if (!isHorizontalSwipe(distanceX, distanceY) || isInteractiveTarget(target)) return;
     if (Date.now() - lastEPUBSwipeAt < 360) return;
 
     lastEPUBSwipeAt = Date.now();
+    suppressClickUntil = lastEPUBSwipeAt + 360;
+    if (event.cancelable) event.preventDefault();
+    void (distanceX < 0 ? epubNext() : epubPrev());
+  };
+  const suppressDraggedClick = (event) => {
+    if (Date.now() >= suppressClickUntil) return;
     event.preventDefault();
-    void (horizontalDistance < 0 ? epubNext() : epubPrev());
-  });
+    event.stopPropagation();
+    suppressClickUntil = 0;
+  };
+
+  if ('PointerEvent' in frameWindow) {
+    const reset = () => { gesture = null; };
+    frameDocument.addEventListener('pointerdown', (event) => {
+      if (state.epubMode !== 'paginated' || event.isPrimary === false
+        || (event.pointerType === 'mouse' && event.button !== 0)
+        || isInteractiveTarget(event.target)) return;
+      gesture = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        target: event.target
+      };
+      event.target?.setPointerCapture?.(event.pointerId);
+    }, { passive: true });
+    frameDocument.addEventListener('pointermove', (event) => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      const distanceX = event.clientX - gesture.x;
+      const distanceY = event.clientY - gesture.y;
+      if (isHorizontalSwipe(distanceX, distanceY) && event.cancelable) event.preventDefault();
+    }, { passive: false });
+    frameDocument.addEventListener('pointerup', (event) => {
+      if (!gesture || event.pointerId !== gesture.id) return;
+      const current = gesture;
+      reset();
+      navigateBySwipe(
+        event.clientX - current.x,
+        event.clientY - current.y,
+        event,
+        current.target
+      );
+    }, { passive: false });
+    frameDocument.addEventListener('pointercancel', reset, { passive: true });
+  } else {
+    let touchStart = null;
+    const resetTouch = () => { touchStart = null; };
+    frameDocument.addEventListener('touchstart', (event) => {
+      if (state.epubMode !== 'paginated' || event.touches.length !== 1
+        || isInteractiveTarget(event.target)) return;
+      const touch = event.touches[0];
+      touchStart = { x: touch.clientX, y: touch.clientY, target: event.target };
+    }, { passive: true });
+    frameDocument.addEventListener('touchend', (event) => {
+      if (!touchStart || event.changedTouches.length !== 1) {
+        resetTouch();
+        return;
+      }
+      const touch = event.changedTouches[0];
+      const current = touchStart;
+      resetTouch();
+      navigateBySwipe(
+        touch.clientX - current.x,
+        touch.clientY - current.y,
+        event,
+        current.target
+      );
+    }, { passive: false });
+    frameDocument.addEventListener('touchcancel', resetTouch, { passive: true });
+  }
+
+  frameDocument.addEventListener('click', suppressDraggedClick, true);
 }
 
 export async function renderEPUB(url, filename, requestId, mode = state.epubMode, restoreLocation = null) {

@@ -251,11 +251,20 @@
 
 .epub-reader.mode-paginated .epub-container {
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .epub-reader.mode-paginated .epub-container > div {
   min-height: 0;
   height: 100% !important;
+}
+
+.epub-reader.mode-paginated .epub-container iframe {
+  cursor: grab;
+}
+
+.epub-reader.mode-paginated .epub-container iframe:active {
+  cursor: grabbing;
 }
 
 .epub-container iframe {

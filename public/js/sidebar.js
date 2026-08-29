@@ -10,6 +10,7 @@ const sidebarResizer = $('#sidebar-resizer');
 function setSidebarToggleState(status) {
   const expanded = status === 'expanded';
   toggleButton.dataset.sidebarState = status;
+  toggleButton.setAttribute('aria-controls', 'sidebar');
   toggleButton.setAttribute('aria-expanded', String(expanded));
   toggleButton.setAttribute('aria-label', expanded ? '收起书架' : '展开书架');
   toggleButton.title = expanded ? '收起书架' : '展开书架';

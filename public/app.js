@@ -1,6 +1,6 @@
 // 主入口文件
 import { state } from './js/state.js';
-import { $, isEpub, isMobile, fileUrl } from './js/utils.js';
+import { $, bookListUrl, fileUrl, isEpub, isMobile } from './js/utils.js';
 import { renderMobilePDF } from './js/pdf.js';
 import {
   renderEPUB,
@@ -19,7 +19,7 @@ async function loadBookList() {
   const list = $('#book-list');
   const status = $('#library-state');
   try {
-    const response = await fetch('/api/books', { headers: { Accept: 'application/json' } });
+    const response = await fetch(bookListUrl(), { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const files = await response.json();
     $('#book-count').textContent = `${files.length} 本书`;
@@ -48,7 +48,7 @@ async function loadBookList() {
     });
   } catch (error) {
     console.error('加载书籍列表失败:', error);
-    status.textContent = '书籍列表加载失败，请刷新重试';
+    status.textContent = '书籍清单加载失败，请检查 books.json';
   }
 }
 
