@@ -193,8 +193,6 @@ $('#epub-toc').addEventListener('click', () => toggleTOC());
 
 // MOBI 控制按钮
 $('#mobi-toc').addEventListener('click', () => toggleMobiTOC());
-$('#mobi-prev').addEventListener('click', () => mobiPrev());
-$('#mobi-next').addEventListener('click', () => mobiNext());
 
 // 点击目录侧栏外的空白区域收起目录。
 document.addEventListener('click', (event) => {
