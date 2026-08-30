@@ -1,12 +1,11 @@
 // 书架目录、搜索与筛选
 import { state } from './state.js';
 import { $, bookListUrl, isEpub } from './utils.js';
-import { getBookReadingStatus } from './reading.js';
+import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
 
 const STATUS_OPTIONS = [
   { value: 'unread', label: '未读' },
-  { value: 'reading', label: '阅读中' },
-  { value: 'finished', label: '已读' }
+  { value: 'read', label: '已读' }
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -89,6 +88,27 @@ function languageLabel(value) {
 
 function readingStatusLabel(value) {
   return STATUS_OPTIONS.find((option) => option.value === value)?.label || '未读';
+}
+
+function formatReadingProgress(file) {
+  const progress = getBookReadingProgress(file);
+  const location = getBookReadingLocation(file);
+
+  if (progress === 0 && !location) return '';
+
+  const percentage = Math.round(progress * 100);
+
+  // PDF 显示页码信息
+  if (location && location.kind === 'pdf-page') {
+    return `第${location.value}页 (${percentage}%)`;
+  }
+
+  // EPUB 或无页码信息时只显示百分比
+  if (percentage > 0) {
+    return `已读 ${percentage}%`;
+  }
+
+  return '';
 }
 
 function hasActiveFilters() {
@@ -201,6 +221,7 @@ function renderBookList() {
     const item = document.createElement('li');
     const epub = isEpub(book.file);
     const readingStatus = getBookReadingStatus(book.file);
+    const progressInfo = formatReadingProgress(book.file);
     const name = document.createElement('span');
     const meta = document.createElement('span');
 
@@ -215,7 +236,19 @@ function renderBookList() {
     name.className = 'book-name';
     name.textContent = book.title;
     meta.className = 'book-meta';
-    meta.textContent = `${book.author} · ${book.format} · ${languageLabel(book.language)} · ${readingStatusLabel(readingStatus)}`;
+
+    // 构建元信息字符串，包含进度信息
+    const metaParts = [
+      book.author,
+      book.format,
+      languageLabel(book.language),
+      readingStatusLabel(readingStatus)
+    ];
+    if (progressInfo) {
+      metaParts.push(progressInfo);
+    }
+    meta.textContent = metaParts.join(' · ');
+
     item.querySelector('.book-info').append(name, meta);
 
     item.addEventListener('click', () => openBookHandler(book.file, item));

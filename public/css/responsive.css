@@ -51,14 +51,54 @@
     height: calc(100% - var(--header-height));
   }
 
-  #pdf-canvas-container.show {
+  .pdf-toolbar-tools {
+    gap: 4px;
+  }
+
+  .pdf-search-control input {
+    width: 72px;
+  }
+
+  .pdf-zoom-control select {
+    max-width: 68px;
+  }
+
+  .pdf-sidebar {
+    width: min(260px, 82vw);
+    min-width: min(220px, 72vw);
+    flex-basis: min(260px, 82vw);
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 3;
+  }
+
+  .pdf-viewer-container {
+    inset: 0;
+  }
+
+  .pdfViewer {
     padding: 12px 8px 32px;
   }
 
-  .pdf-page-shell {
-    width: 100%;
-    min-height: 180px;
-    margin-bottom: 12px;
+  .pdf-progress-value {
+    min-width: 34px;
+    margin-left: 0;
+  }
+
+  .pdf-toolbar {
+    min-height: 52px;
+    flex-basis: 52px;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .pdf-page-jump {
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .pdf-page-jump input {
+    width: 36px;
   }
 
   .epub-toolbar {

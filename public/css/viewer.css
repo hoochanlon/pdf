@@ -41,56 +41,57 @@
   color: #c4c2ff;
 }
 
-#pdf-frame, #pdf-canvas-container {
+.pdf-reader {
   display: none;
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
-}
-
-#pdf-frame.show {
-  display: block;
-  border: 0;
-  background: #fff;
-}
-
-#pdf-canvas-container.show {
-  display: block;
-  overflow: auto;
-  padding: 24px 12px 48px;
-  background: var(--viewer-bg);
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
-
-.pdf-page-shell {
-  width: min(100%, 820px);
-  min-height: 240px;
-  margin: 0 auto 18px;
-  position: relative;
-  background: #fff;
-  border-radius: 3px;
-  box-shadow: var(--shadow-lg);
-  contain: layout paint;
-}
-
-.pdf-page-shell canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 3px;
-  background: #fff;
-}
-
-.page-number {
   position: absolute;
-  inset: 50% 0 auto;
-  color: var(--text-muted);
-  text-align: center;
-  font-size: 12px;
-  transform: translateY(-50%);
+  inset: 0;
+  flex-direction: column;
+  background: var(--viewer-bg);
+}
+
+.pdf-reader.show {
+  display: flex;
+}
+
+.pdf-toolbar {
+  display: flex;
+  min-height: 58px;
+  flex: 0 0 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  color: #fff;
+  background: #3c3c3c;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+}
+
+
+.pdf-progress-value, .epub-progress-value {
+  min-width: 38px;
+  margin-left: 8px;
+  color: #ddd9ff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pdf-progress-wrap {
+  height: 3px;
+  flex: 0 0 3px;
+  background: #dfe3eb;
+}
+
+.pdf-progress-bar {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #716bf2, #4f46e5);
+  transition: width 180ms ease;
 }
 
 .reader-loading, .reader-error {
@@ -116,4 +117,214 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* PDF.js Viewer 使用独立滚动容器，避免工具栏和进度条进入阅读高度。 */
+.pdf-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.pdf-toolbar-tools {
+  gap: 8px;
+}
+
+.pdf-page-jump {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(248, 250, 252, 0.68);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pdf-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.pdf-heading strong {
+  max-width: min(34vw, 520px);
+  overflow: hidden;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pdf-page-jump input,
+.pdf-zoom-control select,
+.pdf-search-control input {
+  height: 30px;
+  color: #fff;
+  background: rgba(16, 14, 79, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.pdf-page-jump input {
+  width: 44px;
+  padding: 0 4px;
+  text-align: center;
+}
+
+.pdf-page-jump input::-webkit-inner-spin-button,
+.pdf-page-jump input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.pdf-zoom-control select {
+  max-width: 92px;
+  padding: 0 5px;
+}
+
+.pdf-search-control {
+  display: block;
+  min-width: 0;
+}
+
+.pdf-search-control input {
+  width: 110px;
+  padding: 0 8px;
+}
+
+.pdf-search-control input::placeholder {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.pdf-workspace, .epub-workspace {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  position: relative;
+}
+
+.pdf-sidebar {
+  display: flex;
+  width: 340px;
+  min-width: 280px;
+  height: 100%;
+  flex: 0 0 340px;
+  flex-direction: column;
+  overflow: hidden;
+  background: #3c3c3c;
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+  box-shadow: 4px 0 14px rgba(0, 0, 0, 0.2);
+}
+
+.pdf-sidebar:not(.show) {
+  display: none;
+}
+
+.pdf-sidebar-header {
+  min-height: 46px;
+  padding: 15px 16px 10px;
+  color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pdf-outline {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.pdf-outline-item button {
+  display: block;
+  width: 100%;
+  padding-top: 10px;
+  padding-right: 12px;
+  padding-bottom: 10px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.85);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-outline-item button:hover,
+.pdf-outline-item button:focus-visible {
+  color: #fff;
+  background: rgba(113, 107, 242, 0.25);
+}
+
+.pdf-outline-empty {
+  padding: 28px 16px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  font-size: 12px;
+}
+
+.pdf-viewer-container {
+  min-width: 0;
+  min-height: 0;
+  position: absolute;
+  inset: 0 0 0 340px;
+  overflow: auto;
+  background: #525659;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.pdf-sidebar:not(.show) ~ .pdf-viewer-container {
+  inset: 0;
+}
+
+.pdfViewer {
+  min-height: 100%;
+  padding: 24px 12px 48px;
+}
+
+.pdfViewer .page {
+  margin: 0 auto 18px;
+  border: 0;
+  border-radius: 3px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+.pdfViewer .page:last-child {
+  margin-bottom: 0;
+}
+
+.pdfViewer .canvasWrapper canvas {
+  border-radius: 3px;
+}
+
+.pdfViewer .textLayer {
+  border-radius: 3px;
+}
+
+.pdfViewer .page .loadingIcon {
+  background: transparent;
+}
+
+.pdf-viewer-container .reader-error {
+  min-height: 100%;
+  color: #f8fafc;
+}
+
+#pdf-sidebar-toggle[aria-expanded="true"],
+#epub-toc[aria-expanded="true"] {
+  background: rgba(113, 107, 242, 0.58);
 }

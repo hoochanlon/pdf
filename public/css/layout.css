@@ -13,7 +13,7 @@
   z-index: 20;
 }
 
-.brand, .header-actions, .sidebar-heading, .epub-toolbar, .epub-heading {
+.brand, .header-actions, .sidebar-heading, .epub-heading {
   display: flex;
   align-items: center;
 }

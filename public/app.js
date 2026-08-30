@@ -1,7 +1,7 @@
 // 主入口文件
 import { state } from './js/state.js';
 import { $, fileUrl, isEpub, isMobile } from './js/utils.js';
-import { renderMobilePDF } from './js/pdf.js';
+import { destroyPDF, renderPDF, togglePDFSidebar } from './js/pdf.js';
 import {
   renderEPUB,
   epubNext,
@@ -15,72 +15,104 @@ import {
 } from './js/epub.js';
 import { initSidebar, closeSidebar } from './js/sidebar.js';
 import { loadBookList } from './js/library.js';
-import { markBookOpened } from './js/reading.js';
+import { getBookReadingLocation } from './js/reading.js';
+
+function safelyDestroy(resource, label) {
+  if (!resource?.destroy) return;
+  try {
+    const result = resource.destroy();
+    if (result?.catch) {
+      void result.catch((error) => console.warn(`${label}清理失败:`, error));
+    }
+  } catch (error) {
+    console.warn(`${label}清理失败:`, error);
+  }
+}
 
 function clearReader() {
   state.requestId += 1;
-  if (state.pdfObserver) state.pdfObserver.disconnect();
-  if (state.pdfScrollHandler) {
-    $('#pdf-canvas-container').removeEventListener('scroll', state.pdfScrollHandler);
-    state.pdfScrollHandler = null;
-  }
-  if (state.pdfScrollFrame) cancelAnimationFrame(state.pdfScrollFrame);
-  state.pdfScrollFrame = 0;
-  state.pdfRenderTasks.forEach((task) => task.cancel());
-  state.pdfRenderTasks.clear();
-  if (state.pdfLoading) state.pdfLoading.destroy();
-  if (state.pdf) state.pdf.destroy();
-  if (state.rendition) state.rendition.destroy();
-  if (state.book) state.book.destroy();
+  state.activeFile = null;
+  state.renderMode = null;
+  const rendition = state.rendition;
+  const book = state.book;
+  state.rendition = null;
+  state.book = null;
+
+  // 先切断可见出口，再清理异步资源；任何清理异常都不能阻断下一本书。
+  showReader(null);
+  toggleTOC(false);
+  $('#pdf-viewer-container').replaceChildren();
+  $('#epub-container').replaceChildren();
+  destroyPDF();
   state.epubResizeObservers.forEach((observer) => observer.disconnect());
   state.epubResizeObservers.clear();
   resetEPUBState();
-  state.pdfObserver = null;
-  state.pdfLoading = null;
-  state.pdf = null;
-  state.rendition = null;
-  state.book = null;
-  state.pdfUrl = null;
-  state.pdfViewportWidth = 0;
-  state.renderMode = null;
-  $('#pdf-frame').src = '';
-  $('#pdf-frame').classList.remove('show');
-  $('#pdf-canvas-container').replaceChildren();
-  $('#pdf-canvas-container').classList.remove('show');
-  $('#epub-container').replaceChildren();
-  $('#epub-reader').classList.remove('show');
-  $('#epub-toc-panel').classList.remove('show');
+  safelyDestroy(rendition, 'EPUB 阅读器');
+  safelyDestroy(book, 'EPUB 文档');
+}
+
+function showReader(mode) {
+  const pdfReader = $('#pdf-reader');
+  const epubReader = $('#epub-reader');
+  pdfReader.classList.toggle('show', mode === 'pdf');
+  epubReader.classList.toggle('show', mode === 'epub');
 }
 
 function openBook(filename, item) {
   document.querySelectorAll('.book-item').forEach((element) => element.classList.remove('active'));
   item.classList.add('active');
-  state.activeFile = filename;
-  markBookOpened(filename);
+  const savedLocation = getBookReadingLocation(filename);
   $('#empty-state').style.display = 'none';
   clearReader();
+  state.activeFile = filename;
   const url = fileUrl(filename);
 
   if (isEpub(filename)) {
     state.renderMode = 'epub';
-    $('#epub-reader').classList.add('show');
-    renderEPUB(url, filename, state.requestId);
-  } else if (isMobile()) {
-    state.renderMode = 'pdf-mobile';
-    $('#pdf-canvas-container').classList.add('show');
-    renderMobilePDF(url, state.requestId);
+    showReader('epub');
+    void renderEPUB(url, filename, state.requestId, state.epubMode, savedLocation);
   } else {
-    state.renderMode = 'pdf-desktop';
-    $('#pdf-frame').src = url;
-    $('#pdf-frame').classList.add('show');
+    state.renderMode = 'pdf';
+    showReader('pdf');
+    void renderPDF(url, filename, state.requestId, savedLocation);
   }
 
   if (isMobile()) closeSidebar();
 }
 
-// EPUB 键盘导航
+// 阅读器键盘导航
 document.addEventListener('keydown', (event) => {
-  if (!state.rendition || event.target.closest('button, input, textarea')) return;
+  if (event.key === 'Escape') {
+    if ($('#pdf-sidebar').classList.contains('show')) togglePDFSidebar(false);
+    if ($('#epub-sidebar').classList.contains('show')) toggleTOC(false);
+    return;
+  }
+  if (event.target.closest?.('button, input, textarea, select')) return;
+  
+  // PDF 缩放快捷键：Ctrl/Cmd + 和 Ctrl/Cmd -
+  if (state.renderMode === 'pdf' && state.pdfViewer && (event.ctrlKey || event.metaKey)) {
+    if (event.key === '=' || event.key === '+') {
+      event.preventDefault();
+      state.pdfViewer.currentScale = Math.min(4, state.pdfViewer.currentScale + 0.1);
+      return;
+    }
+    if (event.key === '-' || event.key === '_') {
+      event.preventDefault();
+      state.pdfViewer.currentScale = Math.max(0.5, state.pdfViewer.currentScale - 0.1);
+      return;
+    }
+  }
+  
+  if (state.renderMode === 'pdf' && state.pdfViewer) {
+    const pdfDirection = { ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1 }[event.key];
+    if (pdfDirection) {
+      event.preventDefault();
+      if (pdfDirection < 0) state.pdfViewer.previousPage();
+      else state.pdfViewer.nextPage();
+    }
+    return;
+  }
+  if (!state.rendition) return;
   if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
     event.preventDefault();
     epubPrev();
@@ -94,22 +126,26 @@ document.addEventListener('keydown', (event) => {
 // 响应式重新渲染
 window.addEventListener('resize', () => {
   const nextMode = state.activeFile
-    ? isEpub(state.activeFile) ? 'epub' : isMobile() ? 'pdf-mobile' : 'pdf-desktop'
+    ? isEpub(state.activeFile) ? 'epub' : 'pdf'
     : null;
   if (state.activeFile && nextMode !== state.renderMode) {
     const activeItem = document.querySelector(`[data-file="${CSS.escape(state.activeFile)}"]`);
     if (activeItem) openBook(state.activeFile, activeItem);
     return;
   }
-  if (state.renderMode === 'pdf-mobile' && state.pdfUrl) {
-    const container = $('#pdf-canvas-container');
-    if (Math.abs(container.clientWidth - state.pdfViewportWidth) > 24) {
-      clearTimeout(state.pdfResizeTimer);
-      state.pdfResizeTimer = setTimeout(() => {
-        const activeItem = document.querySelector(`[data-file="${CSS.escape(state.activeFile)}"]`);
-        if (activeItem) openBook(state.activeFile, activeItem);
-      }, 240);
-    }
+  if (state.renderMode === 'pdf' && state.pdfViewer) {
+    clearTimeout(state.pdfResizeTimer);
+    const requestId = state.requestId;
+    const viewer = state.pdfViewer;
+    state.pdfResizeTimer = setTimeout(() => {
+      if (requestId !== state.requestId || state.pdfViewer !== viewer) return;
+      const page = viewer.currentPageNumber;
+      if (viewer.currentScaleValue === 'auto') {
+        viewer.currentScaleValue = 'auto';
+      }
+      viewer.currentPageNumber = page;
+      state.pdfViewportWidth = $('#pdf-viewer-container').clientWidth;
+    }, 120);
   } else if (state.rendition) {
     state.rendition.resize();
   }
@@ -130,12 +166,18 @@ $('#epub-page-input').addEventListener('keydown', (event) => {
 $('#epub-mode-select').addEventListener('change', (event) => void setEPUBMode(event.target.value));
 $('#epub-toc').addEventListener('click', () => toggleTOC());
 
-// 点击目录浮层外的空白区域收起目录。
+// 点击目录侧栏外的空白区域收起目录。
 document.addEventListener('click', (event) => {
-  const panel = $('#epub-toc-panel');
-  if (!panel.classList.contains('show')) return;
-  if (event.target.closest('#epub-toc-panel, #epub-toc')) return;
-  toggleTOC(false);
+  const pdfSidebar = $('#pdf-sidebar');
+  if (pdfSidebar.classList.contains('show')
+    && !event.target.closest('#pdf-sidebar, #pdf-sidebar-toggle')) {
+    togglePDFSidebar(false);
+  }
+  const epubSidebar = $('#epub-sidebar');
+  if (epubSidebar.classList.contains('show')
+    && !event.target.closest('#epub-sidebar, #epub-toc')) {
+    toggleTOC(false);
+  }
 });
 
 // 初始化

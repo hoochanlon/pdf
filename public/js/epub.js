@@ -1,7 +1,7 @@
 // EPUB 渲染模块
 import { state } from './state.js';
 import { $ } from './utils.js';
-import { markBookFinished, updateBookProgress } from './reading.js';
+import { updateBookProgress, markBookOpened } from './reading.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
@@ -48,6 +48,18 @@ function updateEPUBModeControl() {
 
 function cfiValue(cfi) {
   return typeof cfi === 'string' ? cfi : cfi?.toString?.() || '';
+}
+
+function safelyDestroy(resource, label) {
+  if (!resource?.destroy) return;
+  try {
+    const result = resource.destroy();
+    if (result?.catch) {
+      void result.catch((error) => console.warn(`${label}清理失败:`, error));
+    }
+  } catch (error) {
+    console.warn(`${label}清理失败:`, error);
+  }
 }
 
 // 排版基础：两种阅读模式共享，只管字体与配色，不干预布局。
@@ -160,8 +172,8 @@ function installEPUBNavigation(frameDocument) {
     Math.abs(distanceX) >= 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25
   );
   const closeTOCBeforeNavigation = () => {
-    const panel = $('#epub-toc-panel');
-    if (!panel.classList.contains('show')) return false;
+    const sidebar = $('#epub-sidebar');
+    if (!sidebar.classList.contains('show')) return false;
     toggleTOC(false);
     return true;
   };
@@ -311,6 +323,12 @@ function clearEPUBProgressTracking() {
   state.epubScrollFrame = 0;
 }
 
+function setEPUBProgress(progress) {
+  const safeProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+  $('#epub-progress-bar').style.width = `${safeProgress * 100}%`;
+  $('#epub-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
+}
+
 function bindEPUBScrollProgress(container, requestId) {
   const checkProgress = () => {
     state.epubScrollFrame = 0;
@@ -318,9 +336,15 @@ function bindEPUBScrollProgress(container, requestId) {
     const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
     const reachedEnd = container.scrollHeight > 0
       && (maxScrollTop === 0 || container.scrollTop + container.clientHeight >= container.scrollHeight - 8);
-    const progress = maxScrollTop === 0 ? (reachedEnd ? 1 : 0) : container.scrollTop / maxScrollTop;
-    if (reachedEnd) markBookFinished(state.activeFile);
-    else updateBookProgress(state.activeFile, progress);
+    const progress = reachedEnd ? 1 : maxScrollTop === 0 ? 0 : container.scrollTop / maxScrollTop;
+    setEPUBProgress(progress);
+    const currentLocation = state.rendition?.currentLocation?.();
+    const currentCfi = cfiValue(currentLocation?.start?.cfi);
+    if (currentCfi) state.epubLocation = currentCfi;
+    const location = state.epubLocation
+      ? { kind: 'epub-cfi', value: state.epubLocation }
+      : undefined;
+    updateBookProgress(state.activeFile, progress, location);
   };
   const handleScroll = () => {
     if (state.epubScrollFrame) return;
@@ -342,14 +366,22 @@ function updateSavedEPUBProgress(location, progress) {
     endProgress = state.book.locations.percentageFromCfi(cfiValue(end.cfi));
   }
   const reachedEnd = location?.atEnd === true || end?.atEnd === true || endProgress >= 1;
-  if (reachedEnd) markBookFinished(state.activeFile);
-  else updateBookProgress(state.activeFile, progress);
+  const safeProgress = reachedEnd ? 1 : Math.max(0, Math.min(1, progress));
+  const cfi = cfiValue(location?.start?.cfi);
+  setEPUBProgress(safeProgress);
+  updateBookProgress(
+    state.activeFile,
+    safeProgress,
+    cfi ? { kind: 'epub-cfi', value: cfi } : undefined
+  );
 }
 
 export async function renderEPUB(url, filename, requestId, mode = state.epubMode, restoreLocation = null) {
   const container = $('#epub-container');
   clearEPUBProgressTracking();
-  const resumeLocation = cfiValue(restoreLocation);
+  const resumeLocation = restoreLocation?.kind === 'epub-cfi'
+    ? cfiValue(restoreLocation.value)
+    : cfiValue(restoreLocation);
   state.epubMode = mode;
   state.epubUrl = url;
   $('#epub-reader').dataset.mode = mode;
@@ -364,6 +396,7 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
   const renderToken = state.epubRenderToken;
   updateEPUBModeControl();
   setEPUBPage(0, 0);
+  setEPUBProgress(0);
   setEPUBStatus('loading', '正在加载 EPUB', '正在准备阅读内容…');
   container.replaceChildren();
 
@@ -384,8 +417,17 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
     });
     state.rendition = rendition;
     rendition.hooks.content.register(installEPUBStyles);
-    rendition.on('relocated', updateEPUBLocation);
+    const isCurrentRendition = () => (
+      requestId === state.requestId
+      && renderToken === state.epubRenderToken
+      && state.rendition === rendition
+      && state.book === book
+    );
+    rendition.on('relocated', (location) => {
+      if (isCurrentRendition()) updateEPUBLocation(location);
+    });
     rendition.on('displayError', (error) => {
+      if (!isCurrentRendition()) return;
       console.error('EPUB 页面渲染失败:', error);
       setEPUBStatus('error', 'EPUB 页面渲染失败', error?.message || '章节内容无法显示');
     });
@@ -397,6 +439,7 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
 
     await waitForStage(rendition.display(resumeLocation || undefined), '渲染 EPUB 内容');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
+    markBookOpened(filename);
     setEPUBStatus('ready');
     if (mode === 'scroll') bindEPUBScrollProgress(container, requestId);
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
@@ -410,6 +453,13 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
   }
 }
 
+function getEPUBSpineIndex(book, href, fallback) {
+  const hrefWithoutFragment = href?.split('#', 1)[0] || href;
+  return book.spine.get(href)?.index
+    ?? book.spine.get(hrefWithoutFragment)?.index
+    ?? fallback;
+}
+
 async function loadEPUBTOC(book, requestId, renderToken) {
   const list = $('#epub-toc-list');
   list.replaceChildren();
@@ -417,32 +467,48 @@ async function loadEPUBTOC(book, requestId, renderToken) {
   if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
   const items = navigation?.toc || [];
   const chapters = [];
+  const isCurrentTOC = () => (
+    requestId === state.requestId
+    && renderToken === state.epubRenderToken
+    && state.book === book
+    && state.rendition
+  );
   if (!items.length) {
     state.epubChapters = [];
-    list.innerHTML = '<li class="epub-toc-empty">暂无目录</li>';
+    const empty = document.createElement('li');
+    empty.className = 'pdf-outline-empty';
+    empty.textContent = '此 EPUB 没有目录';
+    list.appendChild(empty);
     updateEPUBChapterControls();
     return;
   }
-  const appendItems = (entries, level = 0) => entries.forEach((entry) => {
+  const appendItems = (entries, parent, level = 0) => entries.forEach((entry) => {
     const chapter = {
       href: entry.href,
-      label: entry.label?.trim() || '未命名章节',
+      label: entry.label?.trim() || '未命名目录项',
       level,
-      spineIndex: book.spine.get(entry.href)?.index ?? chapters.length
+      spineIndex: getEPUBSpineIndex(book, entry.href, chapters.length)
     };
     chapters.push(chapter);
     const item = document.createElement('li');
-    item.className = 'epub-toc-item';
-    item.style.paddingLeft = `${20 + level * 16}px`;
-    item.textContent = chapter.label;
-    item.addEventListener('click', () => {
-      if (state.rendition) void state.rendition.display(chapter.href);
+    const button = document.createElement('button');
+    item.className = 'pdf-outline-item';
+    button.type = 'button';
+    button.textContent = chapter.label;
+    button.style.paddingLeft = `${12 + level * 14}px`;
+    button.addEventListener('click', () => {
+      if (!isCurrentTOC()) return;
+      const rendition = state.rendition;
+      void rendition.display(chapter.href).catch((error) => {
+        if (isCurrentTOC()) console.warn('EPUB 目录跳转失败:', error);
+      });
       toggleTOC(false);
     });
-    list.appendChild(item);
-    if (entry.subitems?.length) appendItems(entry.subitems, level + 1);
+    item.appendChild(button);
+    parent.appendChild(item);
+    if (entry.subitems?.length) appendItems(entry.subitems, parent, level + 1);
   });
-  appendItems(items);
+  appendItems(items, list);
   state.epubChapters = chapters;
   updateEPUBChapterControls();
   const current = state.rendition?.currentLocation?.();
@@ -487,9 +553,9 @@ function updateEPUBLocation(location) {
   if (typeof progress !== 'number' && state.epubLocationsReady && cfi) {
     progress = state.book.locations.percentageFromCfi(cfi);
   }
+  const reachedEnd = location.atEnd === true || location.end?.atEnd === true;
   if (typeof progress === 'number') {
-    progress = Math.max(0, Math.min(1, progress));
-    $('#epub-progress-bar').style.width = `${progress * 100}%`;
+    progress = reachedEnd ? 1 : Math.max(0, Math.min(1, progress));
     updateSavedEPUBProgress(location, progress);
   }
 
@@ -559,8 +625,8 @@ export async function setEPUBMode(mode) {
   const requestId = state.requestId;
   state.epubMode = mode;
   state.epubRenderToken += 1;
-  state.rendition?.destroy();
-  state.book?.destroy();
+  safelyDestroy(state.rendition, 'EPUB 阅读器');
+  safelyDestroy(state.book, 'EPUB 文档');
   state.rendition = null;
   state.book = null;
   $('#epub-container').replaceChildren();
@@ -581,14 +647,17 @@ export function resetEPUBState() {
   state.epubUrl = null;
   updateEPUBModeControl();
   setEPUBPage(0, 0);
+  setEPUBProgress(0);
   updateEPUBChapterControls();
+  toggleTOC(false);
   $('#epub-status').classList.remove('is-error');
   $('#epub-status').classList.add('is-hidden');
 }
 
 export function toggleTOC(force) {
-  const panel = $('#epub-toc-panel');
-  const show = typeof force === 'boolean' ? force : !panel.classList.contains('show');
-  panel.classList.toggle('show', show);
-  panel.setAttribute('aria-hidden', String(!show));
+  const sidebar = $('#epub-sidebar');
+  const show = typeof force === 'boolean' ? force : !sidebar.classList.contains('show');
+  sidebar.classList.toggle('show', show);
+  sidebar.setAttribute('aria-hidden', String(!show));
+  $('#epub-toc').setAttribute('aria-expanded', String(show));
 }

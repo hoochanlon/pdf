@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#172033">
   <title>在线电子书阅读器</title>
   <link rel="stylesheet" href="./styles.css">
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
 </head>
@@ -92,13 +91,53 @@
         <p>书籍会自动从 <code>books.json</code> 读取</p>
       </div>
 
-      <iframe id="pdf-frame" title="PDF 阅读器"></iframe>
-      <div id="pdf-canvas-container" aria-label="PDF 连续阅读区域"></div>
+      <div class="pdf-reader" id="pdf-reader">
+        <div class="pdf-toolbar">
+          <div class="pdf-toolbar-group">
+            <button class="reader-btn" id="pdf-sidebar-toggle" type="button" title="显示目录" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
+          </div>
+          <div class="pdf-page-jump">
+            <label class="sr-only" for="pdf-page-input">跳转到 PDF 页码</label>
+            <input id="pdf-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 PDF 页码">
+            <span aria-hidden="true">/</span>
+            <output id="pdf-page-total">—</output>
+          </div>
+          <div class="pdf-heading">
+            <span class="reader-type">PDF</span>
+            <strong id="pdf-title">—</strong>
+          </div>
+          <div class="pdf-toolbar-group pdf-toolbar-tools">
+            <span class="pdf-progress-value" id="pdf-progress-value">0%</span>
+            <button class="reader-btn" id="pdf-rotate-clockwise" type="button" title="旋转" aria-label="旋转">↻</button>
+            <label class="pdf-zoom-control" for="pdf-zoom-select">
+              <span class="sr-only">缩放模式</span>
+              <select id="pdf-zoom-select" aria-label="缩放模式">
+                <option value="auto">自动</option>
+                <option value="page-width">适合宽度</option>
+                <option value="page-fit">适合页面</option>
+                <option value="page-actual">实际大小</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="pdf-workspace">
+          <aside class="pdf-sidebar" id="pdf-sidebar" aria-hidden="true">
+            <div class="pdf-sidebar-header">目录</div>
+            <ul class="pdf-outline" id="pdf-outline"></ul>
+          </aside>
+          <div class="pdf-viewer-container" id="pdf-viewer-container" tabindex="0" aria-label="PDF 阅读内容">
+            <div id="pdf-viewer" class="pdfViewer"></div>
+          </div>
+        </div>
+        <div class="pdf-progress-wrap" aria-label="PDF 阅读进度">
+          <div class="pdf-progress-bar" id="pdf-progress-bar"></div>
+        </div>
+      </div>
 
       <div class="epub-reader" id="epub-reader">
         <div class="epub-toolbar">
           <div class="epub-nav-group">
-            <button class="reader-btn" id="epub-toc" type="button" title="打开目录" aria-label="打开目录">☰</button>
+            <button class="reader-btn" id="epub-toc" type="button" title="显示目录" aria-label="显示目录" aria-controls="epub-sidebar" aria-expanded="false">☰</button>
             <button class="reader-btn reader-btn-secondary" id="epub-chapter-prev" type="button" title="上一章" aria-label="上一章">|‹</button>
             <button class="reader-btn" id="epub-prev" type="button" title="上一页" aria-label="上一页">‹</button>
           </div>
@@ -115,16 +154,24 @@
               </select>
             </label>
             <div class="epub-page-jump">
-              <label class="sr-only" for="epub-page-input">跳转到页码</label>
-              <input id="epub-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到页码">
+              <span class="epub-page-label">虚拟页</span>
+              <label class="sr-only" for="epub-page-input">跳转到 EPUB 虚拟页码</label>
+              <input id="epub-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 EPUB 虚拟页码">
               <span aria-hidden="true">/</span>
               <output id="epub-page-total">—</output>
             </div>
+            <span class="epub-progress-value" id="epub-progress-value">0%</span>
             <button class="reader-btn" id="epub-next" type="button" title="下一页" aria-label="下一页">›</button>
             <button class="reader-btn reader-btn-secondary" id="epub-chapter-next" type="button" title="下一章" aria-label="下一章">›|</button>
           </div>
         </div>
-        <div class="epub-container" id="epub-container" aria-label="EPUB 阅读内容"></div>
+        <div class="epub-workspace">
+          <aside class="pdf-sidebar" id="epub-sidebar" aria-hidden="true">
+            <div class="pdf-sidebar-header">目录</div>
+            <ul class="pdf-outline" id="epub-toc-list"></ul>
+          </aside>
+          <div class="epub-container" id="epub-container" aria-label="EPUB 阅读内容"></div>
+        </div>
         <div class="epub-status" id="epub-status" role="status" aria-live="polite">
           <div class="epub-status-card">
             <span class="epub-status-spinner" aria-hidden="true"></span>
@@ -136,13 +183,6 @@
           <div class="epub-progress-bar" id="epub-progress-bar"></div>
         </div>
       </div>
-
-        <div class="epub-toc-panel" id="epub-toc-panel" aria-hidden="true">
-          <div class="epub-toc-header">
-            <strong>目录</strong>
-          </div>
-          <ul class="epub-toc-list" id="epub-toc-list"></ul>
-        </div>
     </section>
   </main>
 
