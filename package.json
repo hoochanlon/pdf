@@ -1,0 +1,21 @@
+{
+  "name": "pdf-reader",
+  "version": "1.0.0",
+  "description": "PDF/EPUB reader with static file serving",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --check server.js && node --check public/app.js && node --check public/viewer.js"
+  },
+  "keywords": [
+    "pdf",
+    "epub",
+    "reader"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

@@ -47,17 +47,23 @@ function hideMobiStatus() {
 
 export async function renderMOBI(url, filename, requestId) {
   console.log('[renderMOBI] 开始渲染:', filename);
+  console.log('[renderMOBI] URL:', url);
+  console.log('[renderMOBI] requestId:', requestId);
   
   try {
     setMobiStatus('正在加载 MOBI', '准备阅读库...');
     
     // 先加载 foliate-js
+    console.log('[MOBI] 步骤 1: 加载 foliate-js...');
     await loadFoliateJS();
+    console.log('[MOBI] 步骤 1 完成: foliate-js 已加载');
     
     setMobiStatus('正在加载 MOBI', '等待阅读库初始化...');
     
     // 等待 foliate-js 注册完成
+    console.log('[MOBI] 步骤 2: 等待 foliate-view 注册...');
     await waitForLibrary();
+    console.log('[MOBI] 步骤 2 完成: foliate-view 已注册');
     
     const container = $('#mobi-container');
     container.replaceChildren();
@@ -66,10 +72,11 @@ export async function renderMOBI(url, filename, requestId) {
     
     // 创建 foliate-view 元素
     if (!mobiView || mobiView.requestId !== requestId) {
-      console.log('[MOBI] 创建 foliate-view 元素');
+      console.log('[MOBI] 步骤 3: 创建 foliate-view 元素');
       mobiView = document.createElement('foliate-view');
       mobiView.requestId = requestId;
       container.appendChild(mobiView);
+      console.log('[MOBI] 步骤 3 完成: foliate-view 元素已创建并添加到 DOM');
       
       // 监听位置变化
       mobiView.addEventListener('relocate', (e) => {
@@ -77,28 +84,39 @@ export async function renderMOBI(url, filename, requestId) {
         // TODO: 保存阅读进度
       });
       
-      // 监听加载错误
+      // 监听加载完成
       mobiView.addEventListener('load', () => {
-        console.log('[MOBI] 文件加载完成');
+        console.log('[MOBI] ✓ 文件加载完成事件触发');
+      });
+      
+      // 监听渲染器就绪
+      mobiView.addEventListener('renderer', () => {
+        console.log('[MOBI] ✓ 渲染器就绪事件触发');
       });
     }
     
     setMobiStatus('正在解析 MOBI', '加载文件内容...');
     
-    console.log('[MOBI] 打开文件:', url);
+    console.log('[MOBI] 步骤 4: 调用 open() 方法...');
+    console.log('[MOBI] 文件 URL:', url);
     
     // 打开 MOBI 文件
     await mobiView.open(url);
+    console.log('[MOBI] 步骤 4 完成: open() 返回成功');
     
     $('#mobi-title').textContent = filename.replace(/\.(mobi|azw3?)$/i, '');
     
+    console.log('[MOBI] 步骤 5: 隐藏加载状态');
     hideMobiStatus();
     markBookOpened(filename);
     
-    console.log('[renderMOBI] 渲染完成');
+    console.log('[renderMOBI] ✓ 渲染完成');
     
   } catch (error) {
-    console.error('[renderMOBI] 渲染失败:', error);
+    console.error('[renderMOBI] ✗ 渲染失败');
+    console.error('[renderMOBI] 错误类型:', error.constructor.name);
+    console.error('[renderMOBI] 错误消息:', error.message);
+    console.error('[renderMOBI] 错误堆栈:', error.stack);
     setMobiStatus('MOBI 加载失败', error.message || '无法打开此文件');
   }
 }
