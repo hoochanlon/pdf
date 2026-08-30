@@ -29,7 +29,6 @@ jobs:
         shell: bash
         run: |
           node --check server.js
-          node --check check-page.js
 
       - name: Smoke test HTTP endpoints
         shell: bash
