@@ -21,7 +21,7 @@ export const state = {
   activeFile: null,
   requestId: 0,
   pdfResizeTimer: null,
-  epubMode: 'paginated',  // 默认值，会在initConfig后被覆盖
+  epubMode: 'paginated',  // 固定分页模式
   epubLocation: null,
   epubCurrentPage: 0,
   epubTotalPages: 0,
@@ -34,5 +34,6 @@ export const state = {
   epubResizeObservers: new Set(),
   epubScrollHandler: null,
   epubScrollFrame: 0,
-  renderMode: null
+  renderMode: null,
+  mobiView: null  // MOBI 阅读器实例
 };

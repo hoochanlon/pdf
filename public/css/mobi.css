@@ -20,6 +20,23 @@
   min-height: 0;
   position: relative;
   overflow: hidden;
+  display: flex;
+}
+
+/* MOBI 侧栏 - 复用 PDF 侧栏样式 */
+.mobi-workspace .pdf-sidebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  z-index: 10;
+}
+
+.mobi-workspace .pdf-sidebar.show {
+  transform: translateX(0);
 }
 
 .mobi-container {
@@ -27,12 +44,17 @@
   height: 100%;
   overflow: auto;
   background: var(--paper-bg);
+  /* 禁用浏览器默认的触控板手势和滚动行为 */
+  overscroll-behavior: none;
+  touch-action: pan-y; /* 只允许垂直滚动，阻止横向手势 */
 }
 
 .mobi-container foliate-view {
   width: 100%;
   height: 100%;
   display: block;
+  /* 确保 foliate-view 不会拦截触摸事件 */
+  touch-action: pan-y;
 }
 
 /* MOBI 使用与 EPUB 相同的工具栏样式，但可以独立调整 */
@@ -43,10 +65,19 @@
   flex: 0 0 58px;
 }
 
+.mobi-reader .epub-nav-group,
+.mobi-reader .epub-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .mobi-reader .epub-heading {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  justify-content: center;
 }
 
 .mobi-reader .reader-type {
@@ -124,4 +155,18 @@
 .mobi-reader #mobi-status-detail {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.72);
+}
+
+/* MOBI 进度条 */
+.mobi-reader .epub-progress-wrap {
+  height: 3px;
+  flex: 0 0 3px;
+  background: #e6e8ef;
+}
+
+.mobi-reader .epub-progress-bar {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #716bf2, #4f46e5);
+  transition: width 180ms ease;
 }

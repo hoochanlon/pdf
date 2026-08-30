@@ -41,11 +41,6 @@ function setEPUBPage(current, total) {
   output.textContent = ready ? String(total) : '—';
 }
 
-function updateEPUBModeControl() {
-  $('#epub-mode-select').value = state.epubMode;
-  $('#epub-mode-select').setAttribute('aria-label', `当前模式：${state.epubMode === 'scroll' ? '连续滚动' : '分页阅读'}`);
-}
-
 function cfiValue(cfi) {
   return typeof cfi === 'string' ? cfi : cfi?.toString?.() || '';
 }
@@ -329,35 +324,6 @@ function setEPUBProgress(progress) {
   $('#epub-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
 }
 
-function bindEPUBScrollProgress(container, requestId) {
-  const checkProgress = () => {
-    state.epubScrollFrame = 0;
-    if (requestId !== state.requestId || state.epubMode !== 'scroll' || !state.activeFile) return;
-    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-    const reachedEnd = container.scrollHeight > 0
-      && (maxScrollTop === 0 || container.scrollTop + container.clientHeight >= container.scrollHeight - 8);
-    const progress = reachedEnd ? 1 : maxScrollTop === 0 ? 0 : container.scrollTop / maxScrollTop;
-    setEPUBProgress(progress);
-    const currentLocation = state.rendition?.currentLocation?.();
-    const currentCfi = cfiValue(currentLocation?.start?.cfi);
-    if (currentCfi) state.epubLocation = currentCfi;
-    const location = state.epubLocation
-      ? { kind: 'epub-cfi', value: state.epubLocation }
-      : undefined;
-    updateBookProgress(state.activeFile, progress, location);
-  };
-  const handleScroll = () => {
-    if (state.epubScrollFrame) return;
-    state.epubScrollFrame = window.requestAnimationFrame(checkProgress);
-  };
-
-  clearEPUBProgressTracking();
-  state.epubScrollHandler = handleScroll;
-  container.addEventListener('scroll', handleScroll, { passive: true });
-  window.requestAnimationFrame(checkProgress);
-  window.setTimeout(checkProgress, 300);
-}
-
 function updateSavedEPUBProgress(location, progress) {
   if (!state.activeFile || typeof progress !== 'number') return;
   const end = location?.end;
@@ -376,17 +342,17 @@ function updateSavedEPUBProgress(location, progress) {
   );
 }
 
-export async function renderEPUB(url, filename, requestId, mode = state.epubMode, restoreLocation = null) {
+export async function renderEPUB(url, filename, requestId, restoreLocation = null) {
   const container = $('#epub-container');
   clearEPUBProgressTracking();
   const resumeLocation = restoreLocation?.kind === 'epub-cfi'
     ? cfiValue(restoreLocation.value)
     : cfiValue(restoreLocation);
-  state.epubMode = mode;
   state.epubUrl = url;
+  const mode = 'paginated'; // 固定分页模式
   $('#epub-reader').dataset.mode = mode;
-  $('#epub-reader').classList.toggle('mode-scroll', mode === 'scroll');
-  $('#epub-reader').classList.toggle('mode-paginated', mode === 'paginated');
+  $('#epub-reader').classList.remove('mode-scroll');
+  $('#epub-reader').classList.add('mode-paginated');
   state.epubLocation = null;
   state.epubCurrentPage = 0;
   state.epubTotalPages = 0;
@@ -394,7 +360,6 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
   state.epubChapters = [];
   state.epubRenderToken += 1;
   const renderToken = state.epubRenderToken;
-  updateEPUBModeControl();
   setEPUBPage(0, 0);
   setEPUBProgress(0);
   setEPUBStatus('loading', '正在加载 EPUB', '正在准备阅读内容…');
@@ -410,12 +375,13 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
     const rendition = book.renderTo(container, {
       width: '100%',
       height: '100%',
-      flow: mode === 'scroll' ? 'scrolled-doc' : 'paginated',
-      manager: mode === 'scroll' ? 'continuous' : 'default',
+      flow: 'paginated',
+      manager: 'default',
       spread: 'auto',
       allowScriptedContent: false
     });
     state.rendition = rendition;
+    
     rendition.hooks.content.register(installEPUBStyles);
     const isCurrentRendition = () => (
       requestId === state.requestId
@@ -441,7 +407,7 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     markBookOpened(filename);
     setEPUBStatus('ready');
-    if (mode === 'scroll') bindEPUBScrollProgress(container, requestId);
+    
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);
     });
@@ -614,23 +580,6 @@ export async function epubChapterPrev() {
   if (target && state.rendition) await state.rendition.display(target.href);
 }
 
-export async function setEPUBMode(mode) {
-  if (!['scroll', 'paginated'].includes(mode) || mode === state.epubMode || !state.book) return;
-  const location = state.epubLocation;
-  const url = state.epubUrl;
-  const filename = state.activeFile;
-  const requestId = state.requestId;
-  state.epubMode = mode;
-  state.epubRenderToken += 1;
-  safelyDestroy(state.rendition, 'EPUB 阅读器');
-  safelyDestroy(state.book, 'EPUB 文档');
-  state.rendition = null;
-  state.book = null;
-  $('#epub-container').replaceChildren();
-  updateEPUBModeControl();
-  await renderEPUB(url, filename, requestId, mode, location);
-}
-
 export function resetEPUBState() {
   clearEPUBProgressTracking();
   state.epubRenderToken += 1;
@@ -642,7 +591,6 @@ export function resetEPUBState() {
   state.epubChapters = [];
   state.epubStatus = 'idle';
   state.epubUrl = null;
-  updateEPUBModeControl();
   setEPUBPage(0, 0);
   setEPUBProgress(0);
   updateEPUBChapterControls();

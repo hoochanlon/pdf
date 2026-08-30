@@ -174,13 +174,6 @@
             <strong id="epub-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
-            <label class="epub-mode-control" for="epub-mode-select">
-              <span class="sr-only">阅读模式</span>
-              <select id="epub-mode-select" aria-label="阅读模式">
-                <option value="scroll">连续滚动</option>
-                <option value="paginated">分页阅读</option>
-              </select>
-            </label>
             <div class="epub-page-jump">
               <span class="epub-page-label">虚拟页</span>
               <label class="sr-only" for="epub-page-input">跳转到 EPUB 虚拟页码</label>
@@ -213,15 +206,30 @@
       <div class="mobi-reader" id="mobi-reader">
         <div class="epub-toolbar">
           <div class="epub-nav-group">
+            <button class="reader-btn" id="mobi-toc" type="button" aria-label="显示目录" aria-controls="mobi-sidebar" aria-expanded="false">☰</button>
+            <button class="reader-btn" id="mobi-prev" type="button" title="上一页" aria-label="上一页">‹</button>
+            <button class="reader-btn" id="mobi-next" type="button" title="下一页" aria-label="下一页">›</button>
           </div>
           <div class="epub-heading">
             <span class="reader-type">MOBI</span>
             <strong id="mobi-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
+            <div class="epub-page-jump">
+              <span class="epub-page-label">虚拟页</span>
+              <label class="sr-only" for="mobi-page-input">跳转到 MOBI 虚拟页码</label>
+              <input id="mobi-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 MOBI 虚拟页码">
+              <span aria-hidden="true">/</span>
+              <output id="mobi-page-total">—</output>
+            </div>
+            <span class="epub-progress-value" id="mobi-progress-value">0%</span>
           </div>
         </div>
         <div class="mobi-workspace">
+          <aside class="pdf-sidebar" id="mobi-sidebar" aria-hidden="true">
+            <div class="pdf-sidebar-header">目录</div>
+            <ul class="pdf-outline" id="mobi-toc-list"></ul>
+          </aside>
           <div class="mobi-container" id="mobi-container" aria-label="MOBI 阅读内容"></div>
         </div>
         <div class="epub-status" id="mobi-status" role="status" aria-live="polite">
@@ -231,11 +239,14 @@
             <span id="mobi-status-detail">正在准备阅读内容…</span>
           </div>
         </div>
+        <div class="epub-progress-wrap" aria-hidden="true">
+          <div class="epub-progress-bar" id="mobi-progress-bar"></div>
+        </div>
       </div>
     </section>
   </main>
 
-  <script type="module" src="./app.js?v=7"></script>
+  <script type="module" src="./app.js?v=15"></script>
   <script>
     // 简单验证脚本
     window.addEventListener('load', () => {

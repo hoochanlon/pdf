@@ -1,5 +1,7 @@
 // 书籍封面管理（静态封面 + 动态提取回退）
 
+import { siteUrl } from './utils.js';
+
 /**
  * 获取封面文件名（书籍文件名去除扩展名 + .jpg）
  */
@@ -15,7 +17,7 @@ function getCoverFileName(bookFile) {
  */
 export async function getBookCover(file) {
   const coverFileName = getCoverFileName(file);
-  const staticCoverUrl = `/covers/${coverFileName}`;
+  const staticCoverUrl = siteUrl(`./covers/${coverFileName}`);
   
   // 尝试加载静态封面
   try {

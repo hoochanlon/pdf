@@ -14,3 +14,12 @@ https://github.com/hoochanlon/pdf
 
 * https://www.flowoss.com
 * https://github.com/johnfactotum/foliate-js
+
+
+```
+# 安装 Calibre
+brew install --cask calibre  # macOS
+
+# 提取封面
+ebook-meta "书籍.mobi" --get-cover="封面.jpg"
+```

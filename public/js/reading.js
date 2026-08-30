@@ -1,7 +1,7 @@
 // 阅读状态与位置持久化
 const STORAGE_KEY = 'bookReadingStatus';
 const READ_STATUSES = new Set(['read', 'reading', 'finished']);
-const LOCATION_KINDS = new Set(['pdf-page', 'epub-cfi']);
+const LOCATION_KINDS = new Set(['pdf-page', 'epub-cfi', 'mobi-cfi']);
 
 const clampProgress = (value) => Math.max(0, Math.min(1, Number(value) || 0));
 

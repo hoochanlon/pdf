@@ -11,11 +11,10 @@ import {
   epubChapterNext,
   epubChapterPrev,
   jumpToEPUBPage,
-  setEPUBMode,
   resetEPUBState,
   toggleTOC
-} from './js/epub.js';
-import { renderMOBI, destroyMOBI, resetMobiState } from './js/mobi.js';
+} from './js/epub.js?v=15';
+import { renderMOBI, destroyMOBI, resetMobiState, toggleMobiTOC, mobiNext, mobiPrev } from './js/mobi.js?v=22';
 import { initSidebar, closeSidebar } from './js/sidebar.js';
 import { loadBookList } from './js/library.js';
 import { getBookReadingLocation } from './js/reading.js';
@@ -86,7 +85,7 @@ function openBook(filename, item) {
   } else if (isEpub(filename)) {
     state.renderMode = 'epub';
     showReader('epub');
-    void renderEPUB(url, filename, state.requestId, state.epubMode, savedLocation);
+    void renderEPUB(url, filename, state.requestId, savedLocation);
   } else {
     state.renderMode = 'pdf';
     showReader('pdf');
@@ -119,6 +118,7 @@ document.addEventListener('keydown', (event) => {
     }
   }
   
+  // PDF 导航
   if (state.renderMode === 'pdf' && state.pdfViewer) {
     const pdfDirection = { ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1 }[event.key];
     if (pdfDirection) {
@@ -128,14 +128,28 @@ document.addEventListener('keydown', (event) => {
     }
     return;
   }
-  if (!state.rendition) return;
-  if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
-    event.preventDefault();
-    epubPrev();
+  
+  // MOBI 导航
+  if (state.renderMode === 'mobi' && state.mobiView) {
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+      event.preventDefault();
+      state.mobiView.goLeft?.();
+    } else if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+      event.preventDefault();
+      state.mobiView.goRight?.();
+    }
+    return;
   }
-  if (event.key === 'ArrowRight' || event.key === 'PageDown') {
-    event.preventDefault();
-    epubNext();
+  
+  // EPUB 导航
+  if (state.rendition) {
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+      event.preventDefault();
+      epubPrev();
+    } else if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+      event.preventDefault();
+      epubNext();
+    }
   }
 });
 
@@ -175,8 +189,12 @@ $('#epub-page-input').addEventListener('keydown', (event) => {
     void jumpToEPUBPage(event.target.value);
   }
 });
-$('#epub-mode-select').addEventListener('change', (event) => void setEPUBMode(event.target.value));
 $('#epub-toc').addEventListener('click', () => toggleTOC());
+
+// MOBI 控制按钮
+$('#mobi-toc').addEventListener('click', () => toggleMobiTOC());
+$('#mobi-prev').addEventListener('click', () => mobiPrev());
+$('#mobi-next').addEventListener('click', () => mobiNext());
 
 // 点击目录侧栏外的空白区域收起目录。
 document.addEventListener('click', (event) => {
@@ -189,6 +207,11 @@ document.addEventListener('click', (event) => {
   if (epubSidebar.classList.contains('show')
     && !event.target.closest('#epub-sidebar, #epub-toc')) {
     toggleTOC(false);
+  }
+  const mobiSidebar = $('#mobi-sidebar');
+  if (mobiSidebar.classList.contains('show')
+    && !event.target.closest('#mobi-sidebar, #mobi-toc')) {
+    toggleMobiTOC(false);
   }
 });
 
