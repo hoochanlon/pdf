@@ -5,7 +5,7 @@ export const config = {
   // 网站信息
   site: {
     title: '在线电子书预览',
-    subtitle: '在浏览器中预览你的 PDF 与 EPUB',
+    subtitle: '在浏览器中预览你的电子书',
     favicon: null  // 可选：设置 favicon 路径
   },
 

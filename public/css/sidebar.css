@@ -66,21 +66,28 @@
 .library-search-row {
   display: flex;
   align-items: center;
+  width: 100%;
+}
+
+.library-actions-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
 .library-search {
   display: block;
+  width: 100%;
   min-width: 0;
   flex: 1;
 }
 
-.library-filter-toggle, .library-reset {
+.library-filter-toggle, .library-reset, .library-view-toggle {
   flex: 0 0 auto;
   cursor: pointer;
 }
 
-.library-filter-toggle {
+.library-filter-toggle, .library-view-toggle {
   display: inline-flex;
   height: 36px;
   align-items: center;
@@ -95,7 +102,8 @@
 }
 
 .library-filter-toggle:hover, .library-filter-toggle:focus-visible,
-.library-filter-toggle.is-active {
+.library-filter-toggle.is-active,
+.library-view-toggle:hover, .library-view-toggle:focus-visible {
   color: var(--primary-dark);
   background: #f0efff;
   border-color: #b2afff;
@@ -210,6 +218,18 @@
   list-style: none;
 }
 
+/* 列表视图（默认） */
+.book-list.view-list {
+  grid-template-columns: 1fr;
+}
+
+/* 网格视图（封面卡片） */
+.book-list.view-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 16px 6px;
+}
+
 .book-item {
   display: flex;
   align-items: center;
@@ -223,6 +243,44 @@
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* 网格视图：封面卡片样式 */
+.book-list.view-grid .book-item {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  aspect-ratio: 3 / 4;
+  min-height: 240px;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); /* PDF 红色 */
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    inset -2px 0 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 书页厚度效果 */
+.book-list.view-grid .book-item::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  background: linear-gradient(to right, 
+    rgba(0, 0, 0, 0.15) 0%, 
+    rgba(0, 0, 0, 0.05) 50%, 
+    rgba(255, 255, 255, 0.1) 100%);
+  z-index: 10;
+}
+
+.book-list.view-grid .book-item.epub-book {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); /* EPUB 橙色 */
 }
 
 .book-item:hover {
@@ -232,14 +290,58 @@
   box-shadow: 0 4px 12px rgba(88, 80, 236, 0.15);
 }
 
-.book-item.active {
-  color: #fff;
-  background: var(--item-active);
-  border-color: transparent;
-  box-shadow: 0 6px 16px rgba(88, 80, 236, 0.3), 0 0 0 2px rgba(139, 135, 255, 0.2);
-  transform: translateY(-1px);
+/* 列表视图hover效果 */
+.book-list.view-list .book-item:hover {
+  background: var(--item-hover);
+  border-color: #d9d8ff;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 4px 12px rgba(88, 80, 236, 0.15);
 }
 
+/* 网格视图hover效果 */
+.book-list.view-grid .book-item:hover {
+  transform: translateY(-8px) rotateY(-2deg) !important;
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.25),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    inset -2px 0 6px rgba(0, 0, 0, 0.15),
+    -8px 0 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+.book-item.active {
+  /* 列表视图使用左侧色条，不改变背景和文字颜色 */
+  position: relative;
+  background: var(--item-hover);
+  border-color: var(--primary);
+}
+
+.book-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--primary);
+  border-radius: 10px 0 0 10px;
+}
+
+/* 网格视图active状态 */
+.book-list.view-grid .book-item.active {
+  box-shadow: 
+    0 12px 32px rgba(88, 80, 236, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.15),
+    0 0 0 3px rgba(139, 135, 255, 0.5),
+    inset -2px 0 6px rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-6px) !important;
+}
+
+/* 网格视图active状态不显示左侧色条 */
+.book-list.view-grid .book-item.active::before {
+  display: none;
+}
+
+/* 旧的图标样式（已被封面缩略图替代）
 .book-icon {
   display: grid;
   width: 44px;
@@ -264,6 +366,7 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
 }
+*/
 
 .book-info {
   display: grid;
@@ -292,7 +395,7 @@
 }
 
 .book-item.active .book-meta {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--text-secondary);
 }
 
 .book-arrow {
@@ -323,7 +426,7 @@
 }
 
 /* 每隔3本书添加一个"书架层板"效果 */
-.book-item:nth-child(3n)::after {
+.book-list.view-list .book-item:nth-child(3n)::after {
   content: '';
   position: absolute;
   left: -6px;
@@ -338,6 +441,212 @@
   pointer-events: none;
 }
 
+/* 网格视图下不显示层板效果 */
+.book-list.view-grid .book-item::after {
+  display: none;
+}
+
 .book-item {
   position: relative;
+}
+
+/* 网格视图：封面内容区域 */
+.book-list.view-grid .book-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 20px 16px 16px;
+  color: #fff;
+  text-align: center;
+}
+
+/* 网格视图：封面内容区域 */
+.book-list.view-grid .book-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 20px 16px 16px;
+  color: #fff;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.book-list.view-grid .book-cover-image {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.book-list.view-grid .book-format-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+.book-list.view-grid .book-cover-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+/* 当有封面图片时，标题显示在底部 */
+.book-list.view-grid .book-cover:has(.book-cover-image[style*="display: block"]) {
+  justify-content: flex-end;
+  padding-bottom: 16px;
+}
+
+.book-list.view-grid .book-cover:has(.book-cover-image[style*="display: block"]) .book-cover-title {
+  background: transparent;
+  padding: 8px 16px;
+  margin: 0;
+  width: 100%;
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+/* 网格视图：底部信息条 */
+.book-list.view-grid .book-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.book-list.view-grid .book-footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.book-list.view-grid .book-footer-author {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-list.view-grid .book-footer-meta {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10px;
+}
+
+/* 网格视图：进度条 */
+.book-list.view-grid .book-progress-wrap {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.book-list.view-grid .book-progress-bar {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  transition: width 300ms ease;
+}
+
+.book-list.view-grid .book-progress-text {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* 列表视图下隐藏网格专用元素 */
+.book-list.view-list .book-cover,
+.book-list.view-list .book-footer,
+.book-list.view-list .book-format-badge {
+  display: none;
+}
+
+/* 列表视图：封面缩略图 */
+.book-cover-thumb {
+  display: flex;
+  width: 60px;
+  height: 80px;
+  flex: 0 0 60px;
+  position: relative;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.1),
+    inset -1px 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.book-item.epub-book .book-cover-thumb {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+}
+
+.book-cover-thumb-image {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-cover-thumb-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* 当封面图片加载后，隐藏格式文字 */
+.book-cover-thumb:has(.book-cover-thumb-image[style*="display: block"]) .book-cover-thumb-badge {
+  display: none;
+}
+
+/* 网格视图下隐藏列表专用元素 */
+.book-list.view-grid .book-cover-thumb,
+.book-list.view-grid .book-info,
+.book-list.view-grid .book-arrow {
+  display: none;
 }

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#172033">
   <title>在线电子书阅读器</title>
   <link rel="stylesheet" href="./styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
 </head>
@@ -58,11 +59,17 @@
             <span class="sr-only">搜索书籍</span>
             <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
           </label>
+        </div>
+        <div class="library-actions-row">
           <button class="library-filter-toggle" id="library-filter-toggle" type="button"
             aria-expanded="false" aria-controls="library-filter-panel">
             <span aria-hidden="true">☷</span>
             <span>筛选</span>
             <span class="library-filter-count" id="library-filter-count" aria-hidden="true">0</span>
+          </button>
+          <button class="library-view-toggle" id="library-view-toggle" type="button">
+            <span aria-hidden="true" id="view-icon">⊞</span>
+            <span>整理</span>
           </button>
           <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
         </div>
@@ -110,7 +117,7 @@
       <div class="pdf-reader" id="pdf-reader">
         <div class="pdf-toolbar">
           <div class="pdf-toolbar-group">
-            <button class="reader-btn" id="pdf-sidebar-toggle" type="button" title="显示目录" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
+            <button class="reader-btn" id="pdf-sidebar-toggle" type="button" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
           </div>
           <div class="pdf-page-jump">
             <label class="sr-only" for="pdf-page-input">跳转到 PDF 页码</label>

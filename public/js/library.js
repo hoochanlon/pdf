@@ -2,6 +2,7 @@
 import { state } from './state.js';
 import { $, bookListUrl, isEpub } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
+import { getBookCover, preloadCovers } from './covers.js';
 
 const STATUS_OPTIONS = [
   { value: 'unread', label: '未读' },
@@ -25,6 +26,7 @@ const filters = {
 let books = [];
 let openBookHandler = null;
 let controlsBound = false;
+let currentView = localStorage.getItem('library-view') || 'list'; // 'list' 或 'grid'
 
 function normalizeText(value) {
   return String(value ?? '').trim().toLocaleLowerCase();
@@ -232,48 +234,143 @@ function renderBookList() {
     const epub = isEpub(book.file);
     const readingStatus = getBookReadingStatus(book.file);
     const progressInfo = formatReadingProgress(book.file);
-    const name = document.createElement('span');
-    const meta = document.createElement('span');
+    const progress = getBookReadingProgress(book.file);
 
     item.className = 'book-item';
+    if (epub) item.classList.add('epub-book');
     item.classList.toggle('active', state.activeFile === book.file);
     item.dataset.file = book.file;
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
     
-    // 使用DOM方法创建子元素，避免innerHTML问题
-    const iconSpan = document.createElement('span');
-    iconSpan.className = epub ? 'book-icon epub' : 'book-icon';
-    iconSpan.textContent = epub ? 'EPUB' : 'PDF';
-    
-    const infoSpan = document.createElement('span');
-    infoSpan.className = 'book-info';
-    
-    const arrowSpan = document.createElement('span');
-    arrowSpan.className = 'book-arrow';
-    arrowSpan.textContent = '›';
-    
-    item.appendChild(iconSpan);
-    item.appendChild(infoSpan);
-    item.appendChild(arrowSpan);
-
-    name.className = 'book-name';
-    name.textContent = book.title;
-    meta.className = 'book-meta';
-
-    // 构建元信息字符串，包含进度信息
-    const metaParts = [
-      book.author,
-      book.format,
-      languageLabel(book.language),
-      readingStatusLabel(readingStatus)
-    ];
-    if (progressInfo) {
-      metaParts.push(progressInfo);
+    if (currentView === 'grid') {
+      // 网格视图：封面卡片样式
+      const formatBadge = document.createElement('span');
+      formatBadge.className = 'book-format-badge';
+      formatBadge.textContent = book.format;
+      
+      const cover = document.createElement('div');
+      cover.className = 'book-cover';
+      
+      // 添加封面图片
+      const coverImage = document.createElement('img');
+      coverImage.className = 'book-cover-image';
+      coverImage.alt = book.title;
+      
+      // 异步加载封面
+      getBookCover(book.file).then(dataUrl => {
+        if (dataUrl) {
+          coverImage.src = dataUrl;
+          coverImage.style.display = 'block';
+        }
+      }).catch(err => {
+        console.error('加载封面失败:', err);
+      });
+      
+      const coverTitle = document.createElement('div');
+      coverTitle.className = 'book-cover-title';
+      coverTitle.textContent = book.title;
+      
+      cover.appendChild(coverImage);
+      cover.appendChild(coverTitle);
+      
+      const footer = document.createElement('div');
+      footer.className = 'book-footer';
+      
+      const footerInfo = document.createElement('div');
+      footerInfo.className = 'book-footer-info';
+      
+      const footerAuthor = document.createElement('span');
+      footerAuthor.className = 'book-footer-author';
+      footerAuthor.textContent = book.author;
+      
+      const footerMeta = document.createElement('span');
+      footerMeta.className = 'book-footer-meta';
+      footerMeta.textContent = languageLabel(book.language);
+      
+      footerInfo.appendChild(footerAuthor);
+      footerInfo.appendChild(footerMeta);
+      
+      const progressWrap = document.createElement('div');
+      progressWrap.className = 'book-progress-wrap';
+      
+      const progressBar = document.createElement('div');
+      progressBar.className = 'book-progress-bar';
+      progressBar.style.width = `${progress * 100}%`;
+      
+      if (progressInfo) {
+        const progressText = document.createElement('span');
+        progressText.className = 'book-progress-text';
+        progressText.textContent = progressInfo;
+        progressWrap.appendChild(progressText);
+      }
+      
+      progressWrap.appendChild(progressBar);
+      
+      footer.appendChild(footerInfo);
+      footer.appendChild(progressWrap);
+      
+      item.appendChild(formatBadge);
+      item.appendChild(cover);
+      item.appendChild(footer);
+      
+    } else {
+      // 列表视图：横向信息条样式，左侧显示封面缩略图
+      const coverThumb = document.createElement('div');
+      coverThumb.className = 'book-cover-thumb';
+      
+      const coverImage = document.createElement('img');
+      coverImage.className = 'book-cover-thumb-image';
+      coverImage.alt = book.title;
+      
+      // 异步加载封面
+      getBookCover(book.file).then(dataUrl => {
+        if (dataUrl) {
+          coverImage.src = dataUrl;
+          coverImage.style.display = 'block';
+        }
+      }).catch(err => {
+        console.error('加载封面失败:', err);
+      });
+      
+      const formatBadge = document.createElement('span');
+      formatBadge.className = 'book-cover-thumb-badge';
+      formatBadge.textContent = book.format;
+      
+      coverThumb.appendChild(coverImage);
+      coverThumb.appendChild(formatBadge);
+      
+      const infoSpan = document.createElement('span');
+      infoSpan.className = 'book-info';
+      
+      const arrowSpan = document.createElement('span');
+      arrowSpan.className = 'book-arrow';
+      arrowSpan.textContent = '›';
+      
+      const name = document.createElement('span');
+      name.className = 'book-name';
+      name.textContent = book.title;
+      
+      const meta = document.createElement('span');
+      meta.className = 'book-meta';
+      
+      const metaParts = [
+        book.author,
+        book.format,
+        languageLabel(book.language),
+        readingStatusLabel(readingStatus)
+      ];
+      if (progressInfo) {
+        metaParts.push(progressInfo);
+      }
+      meta.textContent = metaParts.join(' · ');
+      
+      infoSpan.append(name, meta);
+      
+      item.appendChild(coverThumb);
+      item.appendChild(infoSpan);
+      item.appendChild(arrowSpan);
     }
-    meta.textContent = metaParts.join(' · ');
-
-    infoSpan.append(name, meta);
 
     item.addEventListener('click', () => openBookHandler(book.file, item));
     item.addEventListener('keydown', (event) => {
@@ -330,10 +427,58 @@ function bindControls() {
     $('#book-status-filter').value = '';
     renderBookList();
   });
-  window.addEventListener('bookreadingchange', () => {
-    populateFilterOptions();
+  $('#library-view-toggle').addEventListener('click', () => {
+    currentView = currentView === 'list' ? 'grid' : 'list';
+    localStorage.setItem('library-view', currentView);
+    updateViewUI();
     renderBookList();
   });
+  window.addEventListener('bookreadingchange', () => {
+    // 只更新当前打开书籍的进度显示，避免整个列表重新渲染
+    updateActiveBookProgress();
+  });
+}
+
+// 只更新当前激活书籍的进度信息，避免全量刷新
+function updateActiveBookProgress() {
+  if (!state.activeFile) return;
+  
+  const activeItem = document.querySelector(`.book-item[data-file="${state.activeFile}"]`);
+  if (!activeItem) return;
+  
+  const book = books.find(b => b.file === state.activeFile);
+  if (!book) return;
+  
+  const progressInfo = formatReadingProgress(state.activeFile);
+  const metaEl = activeItem.querySelector('.book-meta');
+  
+  if (metaEl && currentView === 'list') {
+    // 列表视图：更新元信息文本
+    const readingStatus = getBookReadingStatus(state.activeFile);
+    const metaParts = [
+      book.author,
+      book.format,
+      languageLabel(book.language),
+      readingStatusLabel(readingStatus)
+    ];
+    if (progressInfo) {
+      metaParts.push(progressInfo);
+    }
+    metaEl.textContent = metaParts.join(' · ');
+  }
+  
+  // 网格视图：更新进度条
+  const progressBar = activeItem.querySelector('.book-progress-bar');
+  const progressText = activeItem.querySelector('.book-progress-text');
+  
+  if (progressBar) {
+    const progress = getBookReadingProgress(state.activeFile);
+    progressBar.style.width = `${progress * 100}%`;
+  }
+  
+  if (progressText && progressInfo) {
+    progressText.textContent = progressInfo;
+  }
 }
 
 function updateBookCount(count) {
@@ -343,11 +488,27 @@ function updateBookCount(count) {
   }
 }
 
+function updateViewUI() {
+  const bookList = $('#book-list');
+  const viewIcon = $('#view-icon');
+  
+  if (currentView === 'grid') {
+    bookList.classList.remove('view-list');
+    bookList.classList.add('view-grid');
+    viewIcon.textContent = '☰';
+  } else {
+    bookList.classList.remove('view-grid');
+    bookList.classList.add('view-list');
+    viewIcon.textContent = '⊞';
+  }
+}
+
 export async function loadBookList(onOpenBook) {
   console.log('[loadBookList] 开始执行');
   updateEmptyState('正在加载书籍列表…', '');
   openBookHandler = onOpenBook;
   bindControls();
+  updateViewUI(); // 初始化视图UI
 
   try {
     console.log('[loadBookList] 开始 fetch');
@@ -369,6 +530,14 @@ export async function loadBookList(onOpenBook) {
     console.log('[loadBookList] 开始 renderBookList');
     renderBookList();
     console.log('[loadBookList] 完成');
+    
+    // 后台预加载封面
+    if (books.length > 0) {
+      const bookFiles = books.map(b => b.file);
+      preloadCovers(bookFiles).catch(err => {
+        console.warn('预加载封面失败:', err);
+      });
+    }
   } catch (error) {
     console.error('加载书籍列表失败:', error);
     books = [];
