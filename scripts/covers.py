@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 封面提取脚本
-从 public/uploads/ 目录的书籍文件中提取封面，保存到 public/covers/
+从 public/uploads/ 目录的书籍文件中提取封面（支持子文件夹），保存到 public/covers/
 """
 
 import os
@@ -20,9 +20,23 @@ JPEG_QUALITY = 85
 # 确保 covers 目录存在
 COVERS_DIR.mkdir(parents=True, exist_ok=True)
 
-def get_cover_filename(book_file):
-    """获取封面文件名（去除扩展名 + .jpg）"""
-    return Path(book_file).stem + '.jpg'
+def get_cover_filename(book_relative_path):
+    """
+    获取封面文件名
+    子文件夹路径转换规则：tech/book.pdf -> tech-book.jpg
+    """
+    # 移除扩展名
+    stem = Path(book_relative_path).stem
+    # 获取相对路径（包含文件夹）
+    parent = Path(book_relative_path).parent
+    
+    if parent == Path('.'):
+        # 根目录文件
+        return stem + '.jpg'
+    else:
+        # 子文件夹文件：将路径分隔符替换为 -
+        folder_prefix = str(parent).replace(os.sep, '-').replace('/', '-')
+        return f"{folder_prefix}-{stem}.jpg"
 
 def resize_image(image_data, output_path):
     """调整图片大小并保存为 JPEG"""
@@ -178,7 +192,7 @@ def extract_mobi_cover(file_path, output_path):
 
 def main():
     print("=" * 60)
-    print("封面提取工具")
+    print("封面提取工具（支持子文件夹）")
     print("=" * 60)
     print()
     
@@ -186,11 +200,14 @@ def main():
         print(f"✗ 书籍目录不存在: {UPLOADS_DIR}")
         sys.exit(1)
     
-    # 查找所有书籍文件
+    # 递归查找所有书籍文件
     book_files = []
-    for ext in ['.pdf', '.epub', '.mobi']:
-        book_files.extend(UPLOADS_DIR.glob(f'*{ext}'))
-        book_files.extend(UPLOADS_DIR.glob(f'*{ext.upper()}'))
+    for ext in ['.pdf', '.epub', '.mobi', '.azw', '.azw3']:
+        book_files.extend(UPLOADS_DIR.rglob(f'*{ext}'))
+        book_files.extend(UPLOADS_DIR.rglob(f'*{ext.upper()}'))
+    
+    # 过滤掉隐藏文件
+    book_files = [f for f in book_files if not any(part.startswith('.') for part in f.parts)]
     
     if not book_files:
         print("未找到任何书籍文件")
@@ -202,28 +219,36 @@ def main():
     skip_count = 0
     fail_count = 0
     
-    for book_file in book_files:
-        cover_filename = get_cover_filename(book_file.name)
+    for book_file in sorted(book_files):
+        # 计算相对路径
+        relative_path = book_file.relative_to(UPLOADS_DIR)
+        cover_filename = get_cover_filename(relative_path)
         output_path = COVERS_DIR / cover_filename
+        
+        # 显示相对路径
+        display_path = str(relative_path)
         
         # 如果封面已存在，跳过
         if output_path.exists():
-            print(f"- 封面已存在，跳过: {book_file.name}")
+            print(f"- 封面已存在，跳过: {display_path}")
             skip_count += 1
             continue
         
         ext = book_file.suffix.lower()
         success = False
         
+        print(f"处理: {display_path}")
+        
         if ext == '.pdf':
             success = extract_pdf_cover(book_file, output_path)
         elif ext == '.epub':
             success = extract_epub_cover(book_file, output_path)
-        elif ext == '.mobi':
+        elif ext in ['.mobi', '.azw', '.azw3']:
             success = extract_mobi_cover(book_file, output_path)
         
         if success:
             success_count += 1
+            print(f"  ✓ 封面已保存为: {cover_filename}")
         else:
             fail_count += 1
         
@@ -236,7 +261,8 @@ def main():
     if fail_count > 0:
         print("\n提示：")
         print("- 对于失败的书籍，可以手动截图或使用 Calibre 等工具提取封面")
-        print("- 将封面图片放到 public/covers/ 目录，文件名与书籍一致（扩展名为 .jpg）")
+        print("- 将封面图片放到 public/covers/ 目录")
+        print("- 子文件夹书籍的封面命名规则：tech/book.pdf -> tech-book.jpg")
 
 if __name__ == '__main__':
     main()

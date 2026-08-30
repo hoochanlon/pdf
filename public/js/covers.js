@@ -4,11 +4,13 @@ import { siteUrl } from './utils.js';
 
 /**
  * 获取封面文件名（书籍文件名去除扩展名 + .jpg）
+ * 支持子文件夹路径，如 "tech/book.pdf" -> "tech-book.jpg"
  */
 function getCoverFileName(bookFile) {
   const lastDot = bookFile.lastIndexOf('.');
   const baseName = lastDot > 0 ? bookFile.substring(0, lastDot) : bookFile;
-  return baseName + '.jpg';
+  // 将路径中的 / 替换为 - 作为封面文件名
+  return baseName.replace(/\//g, '-') + '.jpg';
 }
 
 /**

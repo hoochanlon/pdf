@@ -34,17 +34,31 @@ jobs:
           import json
           from pathlib import Path
 
+          def scan_books(directory, base_dir):
+              """递归扫描书籍文件"""
+              books = []
+              for item in sorted(directory.iterdir(), key=lambda p: p.name.casefold()):
+                  if item.is_dir():
+                      # 递归扫描子文件夹
+                      books.extend(scan_books(item, base_dir))
+                  elif item.is_file() and item.suffix.lower() in {'.pdf', '.epub', '.mobi', '.azw', '.azw3'}:
+                      # 计算相对路径
+                      rel_path = item.relative_to(base_dir)
+                      category = str(rel_path.parent) if str(rel_path.parent) != '.' else '未分类'
+                      books.append({
+                          'file': str(rel_path).replace('\\', '/'),
+                          'category': category.replace('\\', '/')
+                      })
+              return books
+
           source = Path('public/uploads')
-          books = [
-              item.name
-              for item in sorted(source.iterdir(), key=lambda path: path.name.casefold())
-              if item.is_file() and item.suffix.lower() in {'.pdf', '.epub'}
-          ]
+          books = scan_books(source, source)
 
           Path('public/books.json').write_text(
               json.dumps(books, ensure_ascii=False, indent=2) + '\n',
               encoding='utf-8'
           )
+          print(f'✓ 扫描到 {len(books)} 本书籍')
           PY
 
       - name: Upload static site

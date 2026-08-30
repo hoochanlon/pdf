@@ -20,7 +20,8 @@ const filters = {
   author: '',
   format: '',
   language: '',
-  status: ''
+  status: '',
+  category: ''
 };
 
 let books = [];
@@ -41,7 +42,9 @@ function inferFormat(filename) {
 }
 
 function inferTitle(filename) {
-  const base = withoutExtension(filename);
+  // 如果是路径，只取文件名部分
+  const basename = filename.split('/').pop();
+  const base = withoutExtension(basename);
   const quotedTitle = base.match(/^《([^》]+)》/);
   if (quotedTitle) return quotedTitle[1].trim();
 
@@ -50,7 +53,9 @@ function inferTitle(filename) {
 }
 
 function inferAuthor(filename) {
-  const base = withoutExtension(filename);
+  // 如果是路径，只取文件名部分
+  const basename = filename.split('/').pop();
+  const base = withoutExtension(basename);
   const quotedTitle = base.match(/^《[^》]+》(.+)$/);
   if (quotedTitle) return quotedTitle[1].replace(/^[\s:：,，]+/, '').trim();
 
@@ -80,8 +85,9 @@ function normalizeBook(rawBook) {
   const title = String(source.title || inferTitle(file)).trim();
   const author = String(source.author || inferAuthor(file) || '未知作者').trim();
   const language = normalizeLanguage(source.language || source.lang, title);
+  const category = String(source.category || '未分类').trim();
 
-  return { file, title, author, format, language };
+  return { file, title, author, format, language, category };
 }
 
 function languageLabel(value) {
@@ -114,7 +120,7 @@ function formatReadingProgress(file) {
 }
 
 function hasActiveFilters() {
-  return Boolean(filters.query || filters.author || filters.format || filters.language || filters.status);
+  return Boolean(filters.query || filters.author || filters.format || filters.language || filters.status || filters.category);
 }
 
 function matchesFilters(book) {
@@ -125,7 +131,8 @@ function matchesFilters(book) {
     && (!filters.author || book.author === filters.author)
     && (!filters.format || book.format === filters.format)
     && (!filters.language || book.language === filters.language)
-    && (!filters.status || getBookReadingStatus(book.file) === filters.status);
+    && (!filters.status || getBookReadingStatus(book.file) === filters.status)
+    && (!filters.category || book.category === filters.category);
 }
 
 function createOption(value, label, count) {
@@ -148,7 +155,8 @@ function updateFilterSummary() {
     filters.author,
     filters.format,
     filters.language,
-    filters.status
+    filters.status,
+    filters.category
   ].filter(Boolean).length;
   const toggle = $('#library-filter-toggle');
   const count = $('#library-filter-count');
@@ -163,6 +171,7 @@ function populateFilterOptions() {
   const formatCounts = new Map();
   const languageCounts = new Map();
   const statusCounts = new Map();
+  const categoryCounts = new Map();
 
   books.forEach((book) => {
     authorCounts.set(book.author, (authorCounts.get(book.author) || 0) + 1);
@@ -170,6 +179,7 @@ function populateFilterOptions() {
     if (book.language) languageCounts.set(book.language, (languageCounts.get(book.language) || 0) + 1);
     const readingStatus = getBookReadingStatus(book.file);
     statusCounts.set(readingStatus, (statusCounts.get(readingStatus) || 0) + 1);
+    categoryCounts.set(book.category, (categoryCounts.get(book.category) || 0) + 1);
   });
 
   const authorOptions = [...authorCounts.keys()]
@@ -188,11 +198,15 @@ function populateFilterOptions() {
     status.label,
     statusCounts.get(status.value) || 0
   ));
+  const categoryOptions = [...categoryCounts.keys()]
+    .sort((left, right) => left.localeCompare(right, 'zh-CN'))
+    .map((category) => createOption(category, category, categoryCounts.get(category)));
 
   replaceOptions($('#book-author-filter'), authorOptions, '全部作者');
   replaceOptions($('#book-format-filter'), formatOptions, '全部格式');
   replaceOptions($('#book-language-filter'), languageOptions, '全部语言');
   replaceOptions($('#book-status-filter'), statusOptions, '全部状态');
+  replaceOptions($('#book-category-filter'), categoryOptions, '全部分类');
 }
 
 function updateEmptyState(title, message = '') {
@@ -417,6 +431,10 @@ function bindControls() {
     filters.status = event.target.value;
     renderBookList();
   });
+  $('#book-category-filter').addEventListener('change', (event) => {
+    filters.category = event.target.value;
+    renderBookList();
+  });
   $('#library-filter-toggle').addEventListener('click', () => {
     const toggle = $('#library-filter-toggle');
     const panel = $('#library-filter-panel');
@@ -430,11 +448,13 @@ function bindControls() {
     filters.format = '';
     filters.language = '';
     filters.status = '';
+    filters.category = '';
     $('#book-search').value = '';
     $('#book-author-filter').value = '';
     $('#book-format-filter').value = '';
     $('#book-language-filter').value = '';
     $('#book-status-filter').value = '';
+    $('#book-category-filter').value = '';
     renderBookList();
   });
   $('#library-view-toggle').addEventListener('click', () => {
