@@ -93,7 +93,17 @@ function updatePDFReadingUI(currentPage, totalPages, progress) {
   $('#pdf-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
   
   const filename = state.pdfFilename || '';
-  const title = filename ? filename.replace(/\.pdf$/i, '') : '—';
+  const metadata = state.booksMetadata?.[filename];
+  let title = '—';
+  
+  if (metadata?.title) {
+    title = metadata.title;
+  } else if (filename) {
+    const basename = filename.split('/').pop();
+    const nameWithoutExt = basename.replace(/\.pdf$/i, '');
+    title = nameWithoutExt.split('-')[0].trim();
+  }
+  
   $('#pdf-title').textContent = title;
 }
 

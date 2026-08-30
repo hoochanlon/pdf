@@ -515,7 +515,20 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     setupMobiProgressBar();
     setupMobiPageJump();
     
-    $('#mobi-title').textContent = filename.replace(/\.(mobi|azw3?)$/i, '');
+    const metadata = state.booksMetadata?.[filename];
+    let title;
+    
+    if (metadata?.title) {
+      // 使用 books.json 中的自定义标题
+      title = metadata.title;
+    } else {
+      // 回退到从文件名推断
+      const basename = filename.split('/').pop();
+      const nameWithoutExt = basename.replace(/\.(mobi|azw3?)$/i, '');
+      title = nameWithoutExt.split('-')[0].trim();
+    }
+    
+    $('#mobi-title').textContent = title;
     
     console.log('[MOBI] 步骤 7: 隐藏加载状态');
     hideMobiStatus();

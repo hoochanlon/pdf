@@ -45,7 +45,36 @@ async function listBooks() {
 // 本地动态生成清单；线上由 GitHub Actions 在部署阶段生成同名 books.json。
 app.get('/books.json', async (req, res) => {
   try {
-    res.json(await listBooks());
+    // 先动态扫描所有书籍
+    const scannedBooks = await listBooks();
+    
+    // 尝试读取静态配置的元数据覆盖
+    const staticBooksPath = path.join(publicDir, 'books.json');
+    let metadataOverrides = {};
+    
+    try {
+      const staticContent = await fs.promises.readFile(staticBooksPath, 'utf-8');
+      const staticBooks = JSON.parse(staticContent);
+      
+      // 将静态配置转换为以 file 为 key 的映射
+      if (Array.isArray(staticBooks)) {
+        staticBooks.forEach(book => {
+          if (book.file) {
+            metadataOverrides[book.file] = book;
+          }
+        });
+      }
+    } catch (err) {
+      // 静态文件不存在或解析失败，忽略
+    }
+    
+    // 合并：动态扫描的书籍 + 静态配置的元数据覆盖
+    const mergedBooks = scannedBooks.map(book => {
+      const override = metadataOverrides[book.file];
+      return override ? { ...book, ...override } : book;
+    });
+    
+    res.json(mergedBooks);
   } catch (error) {
     res.status(500).json({ error: '读取 uploads 失败' });
   }

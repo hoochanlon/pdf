@@ -35,5 +35,6 @@ export const state = {
   epubScrollHandler: null,
   epubScrollFrame: 0,
   renderMode: null,
-  mobiView: null  // MOBI 阅读器实例
+  mobiView: null,  // MOBI 阅读器实例
+  booksMetadata: {}  // 书籍元数据映射 { filename: { title, author, ... } }
 };

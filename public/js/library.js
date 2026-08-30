@@ -111,9 +111,9 @@ function formatReadingProgress(file) {
     return `第${location.value}页 (${percentage}%)`;
   }
 
-  // EPUB 或无页码信息时只显示百分比
+  // EPUB/MOBI 只显示百分比
   if (percentage > 0) {
-    return `已读 ${percentage}%`;
+    return `${percentage}%`;
   }
 
   return '';
@@ -371,25 +371,25 @@ function renderBookList() {
       arrowSpan.className = 'book-arrow';
       arrowSpan.textContent = '›';
       
-      const name = document.createElement('span');
+      // 第1行：书名（最多2行）
+      const name = document.createElement('div');
       name.className = 'book-name';
       name.textContent = book.title;
       
-      const meta = document.createElement('span');
-      meta.className = 'book-meta';
+      // 第2行：作者
+      const author = document.createElement('div');
+      author.className = 'book-meta book-author';
+      author.textContent = book.author;
       
-      const metaParts = [
-        book.author,
-        book.format,
-        languageLabel(book.language),
-        readingStatusLabel(readingStatus)
-      ];
-      if (progressInfo) {
-        metaParts.push(progressInfo);
-      }
-      meta.textContent = metaParts.join(' · ');
+      // 第3行：分类徽章
+      const category = document.createElement('div');
+      category.className = 'book-meta book-category';
+      const categoryBadge = document.createElement('span');
+      categoryBadge.className = 'category-badge';
+      categoryBadge.textContent = book.category;
+      category.appendChild(categoryBadge);
       
-      infoSpan.append(name, meta);
+      infoSpan.append(name, author, category);
       
       item.appendChild(coverThumb);
       item.appendChild(infoSpan);
@@ -554,6 +554,17 @@ export async function loadBookList(onOpenBook) {
 
     books = (Array.isArray(rawBooks) ? rawBooks : []).map(normalizeBook).filter(Boolean);
     console.log('[loadBookList] books 数量:', books.length);
+    
+    // 保存元数据到全局状态，供阅读器使用
+    state.booksMetadata = {};
+    books.forEach(book => {
+      state.booksMetadata[book.file] = {
+        title: book.title,
+        author: book.author,
+        category: book.category
+      };
+    });
+    
     updateBookCount(books.length);
     console.log('[loadBookList] 开始 populateFilterOptions');
     populateFilterOptions();
