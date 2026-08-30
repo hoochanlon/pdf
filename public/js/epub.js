@@ -412,7 +412,7 @@ export async function renderEPUB(url, filename, requestId, mode = state.epubMode
       height: '100%',
       flow: mode === 'scroll' ? 'scrolled-doc' : 'paginated',
       manager: mode === 'scroll' ? 'continuous' : 'default',
-      spread: 'none',
+      spread: 'auto',
       allowScriptedContent: false
     });
     state.rendition = rendition;
@@ -568,10 +568,7 @@ function updateEPUBLocation(location) {
 }
 
 function updateEPUBChapterControls() {
-  const hasChapters = state.epubChapters.length > 0;
-  const current = state.epubCurrentChapter;
-  $('#epub-chapter-prev').disabled = !hasChapters || current <= 0;
-  $('#epub-chapter-next').disabled = !hasChapters || current < 0 || current >= state.epubChapters.length - 1;
+  // 章节按钮已移除，保留函数避免其他地方的调用报错
 }
 
 export async function jumpToEPUBPage(value) {

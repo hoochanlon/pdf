@@ -152,10 +152,6 @@ window.addEventListener('resize', () => {
 });
 
 // EPUB 控制按钮
-$('#epub-prev').addEventListener('click', () => void epubPrev());
-$('#epub-next').addEventListener('click', () => void epubNext());
-$('#epub-chapter-prev').addEventListener('click', () => void epubChapterPrev());
-$('#epub-chapter-next').addEventListener('click', () => void epubChapterNext());
 $('#epub-page-input').addEventListener('change', (event) => void jumpToEPUBPage(event.target.value));
 $('#epub-page-input').addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
