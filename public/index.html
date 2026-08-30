@@ -174,13 +174,6 @@
             <strong id="epub-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
-            <div class="epub-page-jump">
-              <span class="epub-page-label">虚拟页</span>
-              <label class="sr-only" for="epub-page-input">跳转到 EPUB 虚拟页码</label>
-              <input id="epub-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 EPUB 虚拟页码">
-              <span aria-hidden="true">/</span>
-              <output id="epub-page-total">—</output>
-            </div>
             <span class="epub-progress-value" id="epub-progress-value">0%</span>
           </div>
         </div>
@@ -198,8 +191,11 @@
             <span id="epub-status-detail">正在准备阅读内容…</span>
           </div>
         </div>
-        <div class="epub-progress-wrap" aria-hidden="true">
-          <div class="epub-progress-bar" id="epub-progress-bar"></div>
+        <div class="epub-progress-wrap" aria-label="EPUB 阅读进度" id="epub-progress-wrap">
+          <div class="epub-progress-track">
+            <div class="epub-progress-bar" id="epub-progress-bar"></div>
+          </div>
+          <span class="epub-progress-percent" id="epub-progress-percent">0%</span>
         </div>
       </div>
 
@@ -213,13 +209,6 @@
             <strong id="mobi-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
-            <div class="epub-page-jump">
-              <span class="epub-page-label">虚拟页</span>
-              <label class="sr-only" for="mobi-page-input">跳转到 MOBI 虚拟页码</label>
-              <input id="mobi-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 MOBI 虚拟页码">
-              <span aria-hidden="true">/</span>
-              <output id="mobi-page-total">—</output>
-            </div>
             <span class="epub-progress-value" id="mobi-progress-value">0%</span>
           </div>
         </div>
@@ -237,8 +226,11 @@
             <span id="mobi-status-detail">正在准备阅读内容…</span>
           </div>
         </div>
-        <div class="epub-progress-wrap" aria-hidden="true">
-          <div class="epub-progress-bar" id="mobi-progress-bar"></div>
+        <div class="epub-progress-wrap" aria-label="MOBI 阅读进度" id="mobi-progress-wrap">
+          <div class="epub-progress-track">
+            <div class="epub-progress-bar" id="mobi-progress-bar"></div>
+          </div>
+          <span class="epub-progress-percent" id="mobi-progress-percent">0%</span>
         </div>
       </div>
     </section>

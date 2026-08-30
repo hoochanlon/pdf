@@ -1,7 +1,7 @@
 // EPUB 渲染模块
 import { state } from './state.js';
 import { $ } from './utils.js';
-import { updateBookProgress, markBookOpened } from './reading.js';
+import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
@@ -31,14 +31,9 @@ function setEPUBStatus(status, title, detail = '') {
 }
 
 function setEPUBPage(current, total) {
-  const input = $('#epub-page-input');
-  const output = $('#epub-page-total');
-  const ready = state.epubLocationsReady && total > 0;
-  const safeCurrent = ready ? Math.max(1, current) : current;
-  input.disabled = !ready;
-  input.max = ready ? String(total) : '';
-  input.value = safeCurrent > 0 ? String(safeCurrent) : '';
-  output.textContent = ready ? String(total) : '—';
+  // 保留函数避免其他地方的调用报错，但不再更新 UI
+  state.epubCurrentPage = current;
+  state.epubTotalPages = total;
 }
 
 function cfiValue(cfi) {
@@ -320,8 +315,62 @@ function clearEPUBProgressTracking() {
 
 function setEPUBProgress(progress) {
   const safeProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+  const percent = Math.round(safeProgress * 100);
   $('#epub-progress-bar').style.width = `${safeProgress * 100}%`;
-  $('#epub-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
+  $('#epub-progress-percent').textContent = `${percent}%`;
+  const valueDisplay = $('#epub-progress-value');
+  if (valueDisplay) valueDisplay.textContent = `${percent}%`;
+}
+
+function setupEPUBProgressBar() {
+  const wrap = $('#epub-progress-wrap');
+  const bar = $('#epub-progress-bar');
+  if (!wrap || !bar) return;
+
+  let isDragging = false;
+
+  function getProgressFromEvent(event) {
+    const rect = wrap.getBoundingClientRect();
+    const x = (event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX) - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+
+  function handleProgressChange(fraction) {
+    if (!state.rendition || !state.book?.locations) return;
+    const location = state.book.locations.cfiFromPercentage(fraction);
+    void state.rendition.display(location);
+  }
+
+  function onStart(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    isDragging = true;
+    wrap.classList.add('dragging');
+    const fraction = getProgressFromEvent(event);
+    setEPUBProgress(fraction);
+    handleProgressChange(fraction);
+    event.preventDefault();
+  }
+
+  function onMove(event) {
+    if (!isDragging) return;
+    const fraction = getProgressFromEvent(event);
+    setEPUBProgress(fraction);
+    handleProgressChange(fraction);
+    event.preventDefault();
+  }
+
+  function onEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    wrap.classList.remove('dragging');
+  }
+
+  wrap.addEventListener('mousedown', onStart);
+  wrap.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
 }
 
 function updateSavedEPUBProgress(location, progress) {
@@ -361,7 +410,11 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   state.epubRenderToken += 1;
   const renderToken = state.epubRenderToken;
   setEPUBPage(0, 0);
-  setEPUBProgress(0);
+  
+  // 立即显示保存的进度（如果有）
+  const savedProgress = getBookReadingProgress(filename);
+  setEPUBProgress(savedProgress);
+  
   setEPUBStatus('loading', '正在加载 EPUB', '正在准备阅读内容…');
   container.replaceChildren();
 
@@ -407,6 +460,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     markBookOpened(filename);
     setEPUBStatus('ready');
+    setupEPUBProgressBar();
     
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);
@@ -538,14 +592,8 @@ function updateEPUBChapterControls() {
 }
 
 export async function jumpToEPUBPage(value) {
-  if (!state.rendition || !state.epubLocationsReady) return;
-  const page = Number.parseInt(value, 10);
-  if (!Number.isInteger(page) || page < 1 || page > state.epubTotalPages) {
-    setEPUBPage(state.epubCurrentPage, state.epubTotalPages);
-    return;
-  }
-  const cfi = state.book.locations.cfiFromLocation(Math.min(page - 1, state.epubTotalPages));
-  if (cfi && cfi !== -1) await state.rendition.display(cfiValue(cfi));
+  // 保留函数避免 app.js 调用报错，但功能已废弃
+  console.warn('jumpToEPUBPage 已废弃，请使用进度条交互');
 }
 
 export async function epubNext() {

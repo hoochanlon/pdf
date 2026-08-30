@@ -1,15 +1,10 @@
 // MOBI 渲染模块 - 使用 foliate-js
 import { state } from './state.js';
 import { $ } from './utils.js';
-import { updateBookProgress, markBookOpened } from './reading.js';
+import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 
 let mobiView = null;
 let foliateLoaded = false;
-
-// 虚拟分页状态
-let mobiCurrentPage = 0;
-let mobiTotalPages = 0;
-const CHARS_PER_PAGE = 1800; // 每页约 1800 字符
 
 async function loadFoliateJS() {
   if (foliateLoaded) return;
@@ -52,22 +47,65 @@ function hideMobiStatus() {
 
 function setMobiProgress(progress) {
   const safeProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+  const percent = Math.round(safeProgress * 100);
   $('#mobi-progress-bar').style.width = `${safeProgress * 100}%`;
-  $('#mobi-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
+  $('#mobi-progress-percent').textContent = `${percent}%`;
+  const valueDisplay = $('#mobi-progress-value');
+  if (valueDisplay) valueDisplay.textContent = `${percent}%`;
+}
+
+function setupMobiProgressBar() {
+  const wrap = $('#mobi-progress-wrap');
+  const bar = $('#mobi-progress-bar');
+  if (!wrap || !bar || !mobiView) return;
+
+  let isDragging = false;
+
+  function getProgressFromEvent(event) {
+    const rect = wrap.getBoundingClientRect();
+    const x = (event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX) - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+
+  function handleProgressChange(fraction) {
+    if (!mobiView) return;
+    mobiView.goToFraction(fraction);
+  }
+
+  function onStart(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    isDragging = true;
+    wrap.classList.add('dragging');
+    const fraction = getProgressFromEvent(event);
+    setMobiProgress(fraction);
+    handleProgressChange(fraction);
+    event.preventDefault();
+  }
+
+  function onMove(event) {
+    if (!isDragging) return;
+    const fraction = getProgressFromEvent(event);
+    setMobiProgress(fraction);
+    handleProgressChange(fraction);
+    event.preventDefault();
+  }
+
+  function onEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    wrap.classList.remove('dragging');
+  }
+
+  wrap.addEventListener('mousedown', onStart);
+  wrap.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
 }
 
 function setMobiPage(current, total) {
-  const input = $('#mobi-page-input');
-  const output = $('#mobi-page-total');
-  const ready = total > 0;
-  const safeCurrent = ready ? Math.max(1, current) : current;
-  input.disabled = !ready;
-  input.max = ready ? String(total) : '';
-  input.value = safeCurrent > 0 ? String(safeCurrent) : '';
-  output.textContent = ready ? String(total) : '—';
-  
-  mobiCurrentPage = safeCurrent;
-  mobiTotalPages = total;
+  // 保留函数避免其他地方的调用报错，但不再更新 UI
 }
 
 function buildMobiTOC(toc) {
@@ -361,50 +399,19 @@ function setupMobiInteractions(view) {
   console.log('[MOBI] 请尝试触控板滑动，查看控制台是否有 Wheel 事件日志');
 }
 
-// 页码输入跳转
+// 页码跳转已废弃
 function setupMobiPageJump() {
-  const input = $('#mobi-page-input');
-  
-  // 移除旧的监听器
-  const oldHandler = input._mobiPageJumpHandler;
-  if (oldHandler) {
-    input.removeEventListener('change', oldHandler);
-    input.removeEventListener('keydown', oldHandler);
-  }
-  
-  const handleJump = async (e) => {
-    if (e.type === 'keydown' && e.key !== 'Enter') return;
-    
-    const targetPage = parseInt(input.value, 10);
-    if (!targetPage || targetPage < 1 || targetPage > mobiTotalPages) {
-      input.value = mobiCurrentPage > 0 ? String(mobiCurrentPage) : '';
-      return;
-    }
-    
-    // 计算目标进度（页面从1开始，进度从0开始）
-    const targetFraction = Math.max(0, Math.min(1, (targetPage - 1) / mobiTotalPages));
-    
-    // 使用 goToFraction 导航
-    if (mobiView?.goToFraction) {
-      try {
-        await mobiView.goToFraction(targetFraction);
-        console.log(`[MOBI] 跳转到虚拟页 ${targetPage} (${Math.round(targetFraction * 100)}%)`);
-      } catch (error) {
-        console.error('[MOBI] 页面跳转失败:', error);
-        input.value = mobiCurrentPage > 0 ? String(mobiCurrentPage) : '';
-      }
-    }
-  };
-  
-  input._mobiPageJumpHandler = handleJump;
-  input.addEventListener('change', handleJump);
-  input.addEventListener('keydown', handleJump);
+  // 保留函数避免调用报错
 }
 
-export async function renderMOBI(url, filename, requestId) {
+export async function renderMOBI(url, filename, requestId, restoreLocation = null) {
   console.log('[renderMOBI] 开始渲染:', filename);
   console.log('[renderMOBI] URL:', url);
   console.log('[renderMOBI] requestId:', requestId);
+  
+  // 立即显示保存的进度（如果有）
+  const savedProgress = getBookReadingProgress(filename);
+  setMobiProgress(savedProgress);
   
   try {
     setMobiStatus('正在加载 MOBI', '准备阅读库...');
@@ -466,12 +473,6 @@ export async function renderMOBI(url, filename, requestId) {
       if (typeof detail.fraction === 'number') {
         setMobiProgress(detail.fraction);
         
-        // 计算虚拟页码
-        if (mobiTotalPages > 0) {
-          const currentPage = Math.max(1, Math.ceil(detail.fraction * mobiTotalPages));
-          setMobiPage(currentPage, mobiTotalPages);
-        }
-        
         // 保存阅读进度
         const location = detail.cfi ? { kind: 'mobi-cfi', value: detail.cfi } : undefined;
         updateBookProgress(state.activeFile, detail.fraction, location);
@@ -484,45 +485,22 @@ export async function renderMOBI(url, filename, requestId) {
       buildMobiTOC(mobiView.book.toc);
     }
     
-    // 计算虚拟页数（基于书籍章节大小估算）
-    if (mobiView.book?.sections) {
-      try {
-        // 累加所有章节的字节大小
-        const totalSize = mobiView.book.sections.reduce((sum, section) => {
-          return sum + (section.size || 0);
-        }, 0);
-        
-        if (totalSize > 0) {
-          // 基于总字节数估算页数（每页约 1800 字符 = 约 5400 字节，假设 UTF-8 编码）
-          const BYTES_PER_PAGE = CHARS_PER_PAGE * 3;
-          mobiTotalPages = Math.max(1, Math.ceil(totalSize / BYTES_PER_PAGE));
-          console.log(`[MOBI] 估算虚拟页数: ${mobiTotalPages} (基于 ${totalSize} 字节, ${mobiView.book.sections.length} 章节)`);
-        } else {
-          // 默认值：基于章节数估算（每章约 10 页）
-          mobiTotalPages = Math.max(1, mobiView.book.sections.length * 10);
-          console.log(`[MOBI] 使用默认虚拟页数: ${mobiTotalPages} (${mobiView.book.sections.length} 章节)`);
-        }
-        setMobiPage(1, mobiTotalPages);
-      } catch (error) {
-        console.warn('[MOBI] 无法计算虚拟页数:', error);
-        mobiTotalPages = 100;
-        setMobiPage(1, mobiTotalPages);
-      }
+    // 关键步骤：导航到保存的位置或第一页
+    console.log('[MOBI] 步骤 6: 调用 goTo() 开始渲染...');
+    
+    // 恢复到保存的位置或从头开始
+    if (restoreLocation?.kind === 'mobi-cfi' && restoreLocation.value) {
+      console.log('[MOBI] 恢复到保存的 CFI 位置:', restoreLocation.value);
+      await mobiView.goTo(restoreLocation.value);
+    } else if (typeof savedProgress === 'number' && savedProgress > 0) {
+      console.log('[MOBI] 恢复到进度:', Math.round(savedProgress * 100) + '%');
+      await mobiView.goToFraction(savedProgress);
+    } else {
+      console.log('[MOBI] 从第一页开始');
+      await mobiView.goTo(0);
     }
     
-    // 关键步骤：导航到第一页来触发渲染
-    console.log('[MOBI] 步骤 6: 调用 goTo() 开始渲染第一页...');
-    if (mobiView.renderer && typeof mobiView.renderer.goTo === 'function') {
-      // 固定分页模式
-      mobiView.renderer.setAttribute('flow', 'paginated');
-      
-      // 使用 goTo 导航到第一个章节，这会触发 #display() 创建视图
-      await mobiView.renderer.goTo({ index: 0 });
-      console.log('[MOBI] 步骤 6 完成: 已导航到第一页');
-    } else {
-      console.error('[MOBI] 错误: renderer 不可用或没有 goTo() 方法');
-      console.log('[MOBI] mobiView.renderer:', mobiView.renderer);
-    }
+    console.log('[MOBI] 步骤 6 完成: 已导航到目标位置');
     
     // 保存到全局状态，供键盘导航使用
     state.mobiView = mobiView;
@@ -533,7 +511,8 @@ export async function renderMOBI(url, filename, requestId) {
     // 初始绑定 wheel 监听器
     currentWheelCleanup = setupMobiWheelListener(mobiView);
     
-    // 设置页码跳转
+    // 设置进度条交互
+    setupMobiProgressBar();
     setupMobiPageJump();
     
     $('#mobi-title').textContent = filename.replace(/\.(mobi|azw3?)$/i, '');
@@ -572,8 +551,6 @@ export function resetMobiState() {
   if (container) container.replaceChildren();
   $('#mobi-title').textContent = '—';
   hideMobiStatus();
-  setMobiPage(0, 0);
-  mobiCurrentPage = 0;
-  mobiTotalPages = 0;
+  setMobiProgress(0);
   state.mobiView = null;
 }

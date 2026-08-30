@@ -182,13 +182,6 @@ window.addEventListener('resize', () => {
 });
 
 // EPUB 控制按钮
-$('#epub-page-input').addEventListener('change', (event) => void jumpToEPUBPage(event.target.value));
-$('#epub-page-input').addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    void jumpToEPUBPage(event.target.value);
-  }
-});
 $('#epub-toc').addEventListener('click', () => toggleTOC());
 
 // MOBI 控制按钮
