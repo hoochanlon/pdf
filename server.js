@@ -9,7 +9,7 @@ const uploadsDir = path.join(publicDir, 'uploads');
 
 async function listBooks() {
   const files = await fs.promises.readdir(uploadsDir);
-  return files.filter(file => /\.(pdf|epub)$/i.test(file));
+  return files.filter(file => /\.(pdf|epub|mobi|azw3?)$/i.test(file));
 }
 
 // 本地动态生成清单；线上由 GitHub Actions 在部署阶段生成同名 books.json。

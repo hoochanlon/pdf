@@ -1,7 +1,13 @@
 # Dependencies
 node_modules/
 
-# Book files under public/uploads are deployment inputs and remain tracked.
+# Book files (large, managed separately)
+# 书籍文件较大，通过其他方式管理（云存储/单独上传）
+public/uploads/*.pdf
+public/uploads/*.epub
+public/uploads/*.mobi
+# 但保留 .gitkeep 以维持目录结构
+!public/uploads/.gitkeep
 
 # Logs
 *.log

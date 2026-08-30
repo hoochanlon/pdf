@@ -362,6 +362,12 @@
   box-shadow: 0 2px 4px rgba(4, 120, 87, 0.1);
 }
 
+.book-icon.mobi {
+  color: #c2410c;
+  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+  box-shadow: 0 2px 4px rgba(194, 65, 12, 0.1);
+}
+
 .book-item.active .book-icon {
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
@@ -613,7 +619,11 @@
 }
 
 .book-item.epub-book .book-cover-thumb {
-  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.book-item.mobi-book .book-cover-thumb {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
 }
 
 .book-cover-thumb-image {
@@ -649,4 +659,22 @@
 .book-list.view-grid .book-info,
 .book-list.view-grid .book-arrow {
   display: none;
+}
+
+/* 没有封面时的默认样式 */
+/* 网格视图 */
+.book-list.view-grid .book-cover.no-cover {
+  justify-content: center;
+}
+
+.book-list.view-grid .book-cover.no-cover .book-cover-title {
+  font-size: 18px;
+  font-weight: 600;
+  padding: 0 16px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 列表视图 */
+.book-cover-thumb.no-cover .book-cover-thumb-badge {
+  display: block;
 }

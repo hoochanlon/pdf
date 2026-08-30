@@ -1,6 +1,6 @@
 // 书架目录、搜索与筛选
 import { state } from './state.js';
-import { $, bookListUrl, isEpub } from './utils.js';
+import { $, bookListUrl, isEpub, isMobi } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
 
@@ -232,12 +232,14 @@ function renderBookList() {
   visibleBooks.forEach((book) => {
     const item = document.createElement('li');
     const epub = isEpub(book.file);
+    const mobi = isMobi(book.file);
     const readingStatus = getBookReadingStatus(book.file);
     const progressInfo = formatReadingProgress(book.file);
     const progress = getBookReadingProgress(book.file);
 
     item.className = 'book-item';
     if (epub) item.classList.add('epub-book');
+    if (mobi) item.classList.add('mobi-book');
     item.classList.toggle('active', state.activeFile === book.file);
     item.dataset.file = book.file;
     item.setAttribute('role', 'button');
@@ -258,13 +260,17 @@ function renderBookList() {
       coverImage.alt = book.title;
       
       // 异步加载封面
-      getBookCover(book.file).then(dataUrl => {
-        if (dataUrl) {
-          coverImage.src = dataUrl;
+      getBookCover(book.file).then(coverUrl => {
+        if (coverUrl) {
+          coverImage.src = coverUrl;
           coverImage.style.display = 'block';
+        } else {
+          // 没有封面时，显示默认样式（纯色背景 + 书名）
+          cover.classList.add('no-cover');
         }
       }).catch(err => {
         console.error('加载封面失败:', err);
+        cover.classList.add('no-cover');
       });
       
       const coverTitle = document.createElement('div');
@@ -324,13 +330,17 @@ function renderBookList() {
       coverImage.alt = book.title;
       
       // 异步加载封面
-      getBookCover(book.file).then(dataUrl => {
-        if (dataUrl) {
-          coverImage.src = dataUrl;
+      getBookCover(book.file).then(coverUrl => {
+        if (coverUrl) {
+          coverImage.src = coverUrl;
           coverImage.style.display = 'block';
+        } else {
+          // 没有封面时，显示默认样式
+          coverThumb.classList.add('no-cover');
         }
       }).catch(err => {
         console.error('加载封面失败:', err);
+        coverThumb.classList.add('no-cover');
       });
       
       const formatBadge = document.createElement('span');

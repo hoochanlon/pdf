@@ -202,10 +202,33 @@
           <div class="epub-progress-bar" id="epub-progress-bar"></div>
         </div>
       </div>
+
+      <div class="mobi-reader" id="mobi-reader">
+        <div class="epub-toolbar">
+          <div class="epub-nav-group">
+          </div>
+          <div class="epub-heading">
+            <span class="reader-type">MOBI</span>
+            <strong id="mobi-title">正在加载…</strong>
+          </div>
+          <div class="epub-tools">
+          </div>
+        </div>
+        <div class="mobi-workspace">
+          <div class="mobi-container" id="mobi-container" aria-label="MOBI 阅读内容"></div>
+        </div>
+        <div class="epub-status" id="mobi-status" role="status" aria-live="polite">
+          <div class="epub-status-card">
+            <span class="epub-status-spinner" aria-hidden="true"></span>
+            <strong id="mobi-status-title">正在加载 MOBI</strong>
+            <span id="mobi-status-detail">正在准备阅读内容…</span>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
-  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./app.js?v=5"></script>
   <script>
     // 简单验证脚本
     window.addEventListener('load', () => {

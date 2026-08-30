@@ -1,6 +1,7 @@
 // 工具函数
 export const $ = (selector) => document.querySelector(selector);
 export const isEpub = (name) => /\.epub$/i.test(name);
+export const isMobi = (name) => /\.(mobi|azw3?)$/i.test(name);
 export const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
 // 以当前页面为基准解析路径，兼容 localhost 根路径和 GitHub Pages 的 /pdf/ 子路径。

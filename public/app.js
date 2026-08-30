@@ -2,7 +2,7 @@
 console.log('app.js 开始加载...');
 
 import { state } from './js/state.js';
-import { $, fileUrl, isEpub, isMobile } from './js/utils.js';
+import { $, fileUrl, isEpub, isMobi, isMobile } from './js/utils.js';
 import { destroyPDF, renderPDF, togglePDFSidebar } from './js/pdf.js';
 import {
   renderEPUB,
@@ -15,6 +15,7 @@ import {
   resetEPUBState,
   toggleTOC
 } from './js/epub.js';
+import { renderMOBI, destroyMOBI, resetMobiState } from './js/mobi.js';
 import { initSidebar, closeSidebar } from './js/sidebar.js';
 import { loadBookList } from './js/library.js';
 import { getBookReadingLocation } from './js/reading.js';
@@ -49,10 +50,13 @@ function clearReader() {
   toggleTOC(false);
   $('#pdf-viewer-container').replaceChildren();
   $('#epub-container').replaceChildren();
+  $('#mobi-container').replaceChildren();
   destroyPDF();
+  destroyMOBI();
   state.epubResizeObservers.forEach((observer) => observer.disconnect());
   state.epubResizeObservers.clear();
   resetEPUBState();
+  resetMobiState();
   safelyDestroy(rendition, 'EPUB 阅读器');
   safelyDestroy(book, 'EPUB 文档');
 }
@@ -60,8 +64,10 @@ function clearReader() {
 function showReader(mode) {
   const pdfReader = $('#pdf-reader');
   const epubReader = $('#epub-reader');
+  const mobiReader = $('#mobi-reader');
   pdfReader.classList.toggle('show', mode === 'pdf');
   epubReader.classList.toggle('show', mode === 'epub');
+  mobiReader.classList.toggle('show', mode === 'mobi');
 }
 
 function openBook(filename, item) {
@@ -73,7 +79,11 @@ function openBook(filename, item) {
   state.activeFile = filename;
   const url = fileUrl(filename);
 
-  if (isEpub(filename)) {
+  if (isMobi(filename)) {
+    state.renderMode = 'mobi';
+    showReader('mobi');
+    void renderMOBI(url, filename, state.requestId, savedLocation);
+  } else if (isEpub(filename)) {
     state.renderMode = 'epub';
     showReader('epub');
     void renderEPUB(url, filename, state.requestId, state.epubMode, savedLocation);
@@ -132,7 +142,7 @@ document.addEventListener('keydown', (event) => {
 // 响应式重新渲染
 window.addEventListener('resize', () => {
   const nextMode = state.activeFile
-    ? isEpub(state.activeFile) ? 'epub' : 'pdf'
+    ? isMobi(state.activeFile) ? 'mobi' : isEpub(state.activeFile) ? 'epub' : 'pdf'
     : null;
   if (state.activeFile && nextMode !== state.renderMode) {
     const activeItem = document.querySelector(`[data-file="${CSS.escape(state.activeFile)}"]`);
