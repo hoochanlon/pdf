@@ -99,12 +99,26 @@ export function updateBookProgress(file, progress, location) {
     location: location === undefined ? normalizeLocation(current.location) : normalizeLocation(location),
     lastOpenedAt: current.lastOpenedAt || Date.now()
   };
-  if (
-    current.status === next.status
-    && Math.abs((current.progress || 0) - next.progress) < 0.01
-    && JSON.stringify(current.location || null) === JSON.stringify(next.location || null)
-  ) return;
+  
+  // 检查是否有实质性变化
+  const hasSignificantChange = 
+    current.status !== next.status ||
+    Math.abs((current.progress || 0) - next.progress) >= 0.01 ||
+    JSON.stringify(current.location || null) !== JSON.stringify(next.location || null);
+  
+  // 总是保存
   records[file] = next;
   saveRecords();
-  if (current.status !== next.status) notifyChange(file);
+  
+  // 只在有实质性变化时通知
+  if (hasSignificantChange) {
+    notifyChange(file);
+  }
+}
+
+export function clearBookReadingStatus(file) {
+  if (!file || !records[file]) return;
+  delete records[file];
+  saveRecords();
+  notifyChange(file);
 }

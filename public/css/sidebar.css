@@ -22,8 +22,10 @@
 .sidebar-heading {
   justify-content: space-between;
   gap: 12px;
-  padding: 0 6px 18px;
-  border-bottom: 1px solid var(--sidebar-border);
+  padding: 0 6px 20px;
+  margin-bottom: 4px;
+  border-bottom: 2px solid var(--sidebar-border);
+  background: linear-gradient(to bottom, rgba(139, 135, 255, 0.03) 0%, transparent 100%);
 }
 
 .eyebrow {
@@ -55,8 +57,10 @@
 .library-tools {
   display: grid;
   gap: 10px;
-  padding: 14px 6px 10px;
+  padding: 14px 6px 16px;
+  margin-bottom: 8px;
   border-bottom: 1px solid var(--sidebar-border);
+  background: linear-gradient(to bottom, transparent 0%, rgba(139, 135, 255, 0.02) 100%);
 }
 
 .library-search-row {
@@ -186,16 +190,23 @@
 }
 
 .library-state {
+  display: none; /* 不再使用，状态提示已移至右侧 empty-state */
   min-height: 38px;
-  padding: 15px 7px 8px;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  padding: 20px 12px;
+  color: var(--text-primary);
+  background: rgba(139, 135, 255, 0.08);
+  border: 1px solid rgba(139, 135, 255, 0.2);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .book-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
+  padding: 16px 0;
   list-style: none;
 }
 
@@ -203,44 +214,50 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 12px;
   color: var(--text-primary);
   background: var(--item-bg);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .book-item:hover {
   background: var(--item-hover);
   border-color: #d9d8ff;
-  transform: translateX(2px);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 4px 12px rgba(88, 80, 236, 0.15);
 }
 
 .book-item.active {
   color: #fff;
   background: var(--item-active);
-  box-shadow: 0 5px 14px rgba(88, 80, 236, 0.25);
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(88, 80, 236, 0.3), 0 0 0 2px rgba(139, 135, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .book-icon {
   display: grid;
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   place-items: center;
   color: var(--primary-dark);
-  background: #e7e7ff;
-  border-radius: 8px;
-  font-size: 10px;
+  background: linear-gradient(135deg, #e7e7ff 0%, #d9d8ff 100%);
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 800;
+  box-shadow: 0 2px 4px rgba(88, 80, 236, 0.1);
 }
 
 .book-icon.epub {
   color: #047857;
-  background: #d8f6eb;
+  background: linear-gradient(135deg, #d8f6eb 0%, #a7f3d0 100%);
+  box-shadow: 0 2px 4px rgba(4, 120, 87, 0.1);
 }
 
 .book-item.active .book-icon {
@@ -283,4 +300,44 @@
   opacity: 0.45;
   font-size: 20px;
   line-height: 1;
+}
+
+/* 书架层级装饰效果 */
+.book-list::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(139, 135, 255, 0.15) 20%, 
+    rgba(139, 135, 255, 0.15) 80%, 
+    transparent 100%);
+  border-radius: 2px;
+}
+
+.book-list {
+  position: relative;
+}
+
+/* 每隔3本书添加一个"书架层板"效果 */
+.book-item:nth-child(3n)::after {
+  content: '';
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(139, 135, 255, 0.08) 15%, 
+    rgba(139, 135, 255, 0.08) 85%, 
+    transparent 100%);
+  pointer-events: none;
+}
+
+.book-item {
+  position: relative;
 }

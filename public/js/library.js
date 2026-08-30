@@ -193,9 +193,16 @@ function populateFilterOptions() {
   replaceOptions($('#book-status-filter'), statusOptions, '全部状态');
 }
 
+function updateEmptyState(title, message = '') {
+  const emptyStateTitle = $('#empty-state-title');
+  const emptyStateMessage = $('#empty-state-message');
+  if (emptyStateTitle) emptyStateTitle.textContent = title;
+  if (emptyStateMessage) emptyStateMessage.textContent = message;
+}
+
 function renderBookList() {
   const list = $('#book-list');
-  const status = $('#library-state');
+  const emptyState = $('#empty-state');
   const visibleBooks = books.filter(matchesFilters);
   const filtered = hasActiveFilters();
 
@@ -205,17 +212,20 @@ function renderBookList() {
   list.replaceChildren();
 
   if (!books.length) {
-    status.textContent = 'uploads 中暂无 PDF 或 EPUB';
+    updateEmptyState('书架空空如也', '请添加书籍到 books.json');
+    if (emptyState) emptyState.style.display = 'flex';
     return;
   }
   if (!visibleBooks.length) {
-    status.textContent = '没有找到匹配的书籍';
+    updateEmptyState('未找到匹配的书籍', '试试调整筛选条件');
+    if (emptyState) emptyState.style.display = 'flex';
     return;
   }
 
-  status.textContent = filtered
-    ? `显示 ${visibleBooks.length} / ${books.length} 本书`
-    : '选择一本书开始阅读';
+  // 有书籍显示时，更新empty-state为默认提示
+  if (!state.currentBook) {
+    updateEmptyState('选择一本书开始阅读', '');
+  }
 
   visibleBooks.forEach((book) => {
     const item = document.createElement('li');
@@ -230,8 +240,22 @@ function renderBookList() {
     item.dataset.file = book.file;
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
-    item.title = book.file;
-    item.innerHTML = `<span class="book-icon ${epub ? 'epub' : ''}">${epub ? 'EPUB' : 'PDF'}</span><span class="book-info"></span><span class="book-arrow">›</span>`;
+    
+    // 使用DOM方法创建子元素，避免innerHTML问题
+    const iconSpan = document.createElement('span');
+    iconSpan.className = epub ? 'book-icon epub' : 'book-icon';
+    iconSpan.textContent = epub ? 'EPUB' : 'PDF';
+    
+    const infoSpan = document.createElement('span');
+    infoSpan.className = 'book-info';
+    
+    const arrowSpan = document.createElement('span');
+    arrowSpan.className = 'book-arrow';
+    arrowSpan.textContent = '›';
+    
+    item.appendChild(iconSpan);
+    item.appendChild(infoSpan);
+    item.appendChild(arrowSpan);
 
     name.className = 'book-name';
     name.textContent = book.title;
@@ -249,7 +273,7 @@ function renderBookList() {
     }
     meta.textContent = metaParts.join(' · ');
 
-    item.querySelector('.book-info').append(name, meta);
+    infoSpan.append(name, meta);
 
     item.addEventListener('click', () => openBookHandler(book.file, item));
     item.addEventListener('keydown', (event) => {
@@ -312,30 +336,45 @@ function bindControls() {
   });
 }
 
+function updateBookCount(count) {
+  const bookCountEl = $('#book-count');
+  if (bookCountEl) {
+    bookCountEl.textContent = `${count} 本书`;
+  }
+}
+
 export async function loadBookList(onOpenBook) {
-  const status = $('#library-state');
+  console.log('[loadBookList] 开始执行');
+  updateEmptyState('正在加载书籍列表…', '');
   openBookHandler = onOpenBook;
   bindControls();
 
   try {
+    console.log('[loadBookList] 开始 fetch');
     const response = await fetch(bookListUrl(), {
       cache: 'no-store',
       headers: { Accept: 'application/json' }
     });
+    console.log('[loadBookList] fetch 完成, status:', response.status);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     const rawBooks = Array.isArray(payload) ? payload : payload.books;
+    console.log('[loadBookList] rawBooks 数量:', Array.isArray(rawBooks) ? rawBooks.length : '非数组');
 
     books = (Array.isArray(rawBooks) ? rawBooks : []).map(normalizeBook).filter(Boolean);
-    $('#book-count').textContent = `${books.length} 本书`;
+    console.log('[loadBookList] books 数量:', books.length);
+    updateBookCount(books.length);
+    console.log('[loadBookList] 开始 populateFilterOptions');
     populateFilterOptions();
+    console.log('[loadBookList] 开始 renderBookList');
     renderBookList();
+    console.log('[loadBookList] 完成');
   } catch (error) {
     console.error('加载书籍列表失败:', error);
     books = [];
-    $('#book-count').textContent = '0 本书';
+    updateBookCount(0);
     $('#sidebar-count').textContent = '0';
     $('#book-list').replaceChildren();
-    status.textContent = '书籍清单加载失败，请检查 books.json';
+    updateEmptyState('加载失败', '无法读取 books.json，请检查文件是否存在');
   }
 }

@@ -1,4 +1,5 @@
 // 全局状态管理
+
 export const state = {
   book: null,
   rendition: null,
@@ -20,7 +21,7 @@ export const state = {
   activeFile: null,
   requestId: 0,
   pdfResizeTimer: null,
-  epubMode: 'scroll',
+  epubMode: 'paginated',  // 默认值，会在initConfig后被覆盖
   epubLocation: null,
   epubCurrentPage: 0,
   epubTotalPages: 0,

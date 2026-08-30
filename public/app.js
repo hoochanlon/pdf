@@ -1,4 +1,6 @@
 // 主入口文件
+console.log('app.js 开始加载...');
+
 import { state } from './js/state.js';
 import { $, fileUrl, isEpub, isMobile } from './js/utils.js';
 import { destroyPDF, renderPDF, togglePDFSidebar } from './js/pdf.js';
@@ -16,6 +18,10 @@ import {
 import { initSidebar, closeSidebar } from './js/sidebar.js';
 import { loadBookList } from './js/library.js';
 import { getBookReadingLocation } from './js/reading.js';
+import { initTooltips } from './js/tooltip.js';
+import { initConfig, config } from './js/config-init.js';
+
+console.log('app.js 所有模块导入完成');
 
 function safelyDestroy(resource, label) {
   if (!resource?.destroy) return;
@@ -177,5 +183,10 @@ document.addEventListener('click', (event) => {
 });
 
 // 初始化
-initSidebar();
-loadBookList(openBook);
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM加载完成，开始初始化...');
+  initConfig();
+  initTooltips();
+  initSidebar();
+  loadBookList(openBook);
+});
