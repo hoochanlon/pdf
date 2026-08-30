@@ -11,20 +11,21 @@ async function loadFoliateJS() {
   
   try {
     console.log('[MOBI] 开始加载 foliate-js...');
-    await import('https://cdn.jsdelivr.net/gh/johnfactotum/foliate-js@main/view.js');
+    // 从本地路径加载 foliate-js
+    await import('/lib/foliate-js/view.js');
     foliateLoaded = true;
     console.log('[MOBI] foliate-js 加载成功');
   } catch (error) {
     console.error('[MOBI] foliate-js 加载失败:', error);
-    throw new Error('无法加载 MOBI 阅读库');
+    throw new Error('无法加载 MOBI 阅读库: ' + error.message);
   }
 }
 
-async function waitForLibrary(timeout = 8000) {
+async function waitForLibrary(timeout = 10000) {
   const startedAt = Date.now();
   while (typeof customElements.get('foliate-view') === 'undefined') {
     if (Date.now() - startedAt >= timeout) {
-      throw new Error('foliate-js 加载超时');
+      throw new Error('foliate-js 初始化超时');
     }
     await new Promise((resolve) => window.setTimeout(resolve, 50));
   }
@@ -48,16 +49,6 @@ export async function renderMOBI(url, filename, requestId) {
   console.log('[renderMOBI] 开始渲染:', filename);
   
   try {
-    setMobiStatus('MOBI 格式支持开发中', 'foliate-js 集成正在完善，当前版本暂时无法渲染 MOBI 文件。建议使用 Calibre 等工具将 MOBI 转换为 EPUB 格式阅读。');
-    
-    // TODO: 完善 foliate-js 集成
-    // 问题：foliate-js 作为 ES 模块从 CDN 加载存在依赖和跨域问题
-    // 解决方案：
-    // 1. 下载 foliate-js 完整源码到项目中
-    // 2. 或使用打包后的版本
-    // 3. 或在服务端转换 MOBI 为 EPUB
-    
-    /* 
     setMobiStatus('正在加载 MOBI', '准备阅读库...');
     
     // 先加载 foliate-js
@@ -85,6 +76,11 @@ export async function renderMOBI(url, filename, requestId) {
         console.log('[MOBI] 位置变化:', e.detail);
         // TODO: 保存阅读进度
       });
+      
+      // 监听加载错误
+      mobiView.addEventListener('load', () => {
+        console.log('[MOBI] 文件加载完成');
+      });
     }
     
     setMobiStatus('正在解析 MOBI', '加载文件内容...');
@@ -100,7 +96,6 @@ export async function renderMOBI(url, filename, requestId) {
     markBookOpened(filename);
     
     console.log('[renderMOBI] 渲染完成');
-    */
     
   } catch (error) {
     console.error('[renderMOBI] 渲染失败:', error);

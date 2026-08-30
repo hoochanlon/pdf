@@ -280,7 +280,11 @@
 }
 
 .book-list.view-grid .book-item.epub-book {
-  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); /* EPUB 橙色 */
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%); /* EPUB 绿色 */
+}
+
+.book-list.view-grid .book-item.mobi-book {
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 100%); /* MOBI 橙色 */
 }
 
 .book-item:hover {
