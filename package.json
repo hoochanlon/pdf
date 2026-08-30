@@ -17,5 +17,8 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }

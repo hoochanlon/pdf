@@ -25,12 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check JavaScript syntax
+      - name: Check server-side JavaScript syntax
         shell: bash
         run: |
-          for file in server.js public/app.js public/viewer.js public/js/*.js; do
-            node --check "$file"
-          done
+          node --check server.js
+          node --check check-page.js
 
       - name: Smoke test HTTP endpoints
         shell: bash

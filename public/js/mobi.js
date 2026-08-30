@@ -104,9 +104,18 @@ export async function renderMOBI(url, filename, requestId) {
     await mobiView.open(url);
     console.log('[MOBI] 步骤 4 完成: open() 返回成功');
     
+    // 关键步骤：触发渲染器开始渲染第一页
+    console.log('[MOBI] 步骤 5: 调用 renderer.next() 开始渲染...');
+    if (mobiView.renderer && typeof mobiView.renderer.next === 'function') {
+      await mobiView.renderer.next();
+      console.log('[MOBI] 步骤 5 完成: 渲染器已启动');
+    } else {
+      console.warn('[MOBI] 警告: renderer.next() 不可用');
+    }
+    
     $('#mobi-title').textContent = filename.replace(/\.(mobi|azw3?)$/i, '');
     
-    console.log('[MOBI] 步骤 5: 隐藏加载状态');
+    console.log('[MOBI] 步骤 6: 隐藏加载状态');
     hideMobiStatus();
     markBookOpened(filename);
     
