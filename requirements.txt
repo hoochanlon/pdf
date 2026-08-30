@@ -1,0 +1,13 @@
+# 封面提取工具依赖
+
+# PDF 处理
+PyMuPDF>=1.23.0
+
+# EPUB 处理
+ebooklib>=0.18
+
+# MOBI 处理
+mobi>=0.3.3
+
+# 图片处理
+Pillow>=10.0.0

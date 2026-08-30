@@ -1,145 +1,199 @@
 #!/usr/bin/env python3
 """
-书籍封面自动提取脚本
-支持 PDF、EPUB 格式
+封面提取脚本
+从 public/uploads/ 目录的书籍文件中提取封面，保存到 public/covers/
 """
 
 import os
 import sys
 from pathlib import Path
 from PIL import Image
-import fitz  # PyMuPDF
-from ebooklib import epub
+import io
 
-UPLOADS_DIR = Path(__file__).parent.parent / "public" / "uploads"
-COVERS_DIR = Path(__file__).parent.parent / "public" / "covers"
+# 配置
+SCRIPT_DIR = Path(__file__).parent
+UPLOADS_DIR = SCRIPT_DIR.parent / 'public' / 'uploads'
+COVERS_DIR = SCRIPT_DIR.parent / 'public' / 'covers'
 THUMBNAIL_WIDTH = 300
 JPEG_QUALITY = 85
 
-# 确保封面目录存在
+# 确保 covers 目录存在
 COVERS_DIR.mkdir(parents=True, exist_ok=True)
 
+def get_cover_filename(book_file):
+    """获取封面文件名（去除扩展名 + .jpg）"""
+    return Path(book_file).stem + '.jpg'
 
-def get_cover_path(book_file):
-    """获取封面文件路径"""
-    stem = book_file.stem
-    return COVERS_DIR / f"{stem}.jpg"
+def resize_image(image_data, output_path):
+    """调整图片大小并保存为 JPEG"""
+    try:
+        img = Image.open(io.BytesIO(image_data))
+        
+        # 计算缩放比例
+        if img.width > THUMBNAIL_WIDTH:
+            ratio = THUMBNAIL_WIDTH / img.width
+            new_height = int(img.height * ratio)
+            img = img.resize((THUMBNAIL_WIDTH, new_height), Image.Resampling.LANCZOS)
+        
+        # 转换为 RGB（处理 RGBA 或其他模式）
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # 保存为 JPEG
+        img.save(output_path, 'JPEG', quality=JPEG_QUALITY, optimize=True)
+        return True
+    except Exception as e:
+        print(f"    ✗ 图片处理失败: {e}")
+        return False
 
-
-def extract_pdf_cover(pdf_path, output_path):
+def extract_pdf_cover(file_path, output_path):
     """从 PDF 提取首页作为封面"""
     try:
-        print(f"  提取 PDF 封面: {pdf_path.name}")
-        doc = fitz.open(pdf_path)
+        import fitz  # PyMuPDF
         
+        print(f"  正在提取 PDF 封面: {file_path.name}")
+        
+        doc = fitz.open(file_path)
         if doc.page_count == 0:
-            print(f"  ✗ PDF 无页面: {pdf_path.name}")
+            print("    ✗ PDF 无页面")
             return False
         
-        page = doc[0]
+        page = doc.load_page(0)  # 第一页
         
-        # 渲染首页为图片
-        mat = fitz.Matrix(2.0, 2.0)  # 2倍分辨率
+        # 渲染页面为图片
+        mat = fitz.Matrix(2, 2)  # 2倍缩放获得更清晰的图片
         pix = page.get_pixmap(matrix=mat)
         
         # 转换为 PIL Image
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        
-        # 调整尺寸
-        aspect_ratio = img.height / img.width
-        new_height = int(THUMBNAIL_WIDTH * aspect_ratio)
-        img = img.resize((THUMBNAIL_WIDTH, new_height), Image.Resampling.LANCZOS)
-        
-        # 保存为 JPEG
-        img.save(output_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
+        img_data = pix.tobytes("png")
         
         doc.close()
-        print(f"  ✓ PDF 封面提取成功: {pdf_path.name}")
-        return True
         
+        # 调整大小并保存
+        if resize_image(img_data, output_path):
+            print(f"    ✓ PDF 封面提取成功")
+            return True
+        return False
+        
+    except ImportError:
+        print("    ✗ 需要安装 PyMuPDF: pip install PyMuPDF")
+        return False
     except Exception as e:
-        print(f"  ✗ PDF 封面提取失败: {pdf_path.name} - {e}")
+        print(f"    ✗ PDF 封面提取失败: {e}")
         return False
 
-
-def extract_epub_cover(epub_path, output_path):
+def extract_epub_cover(file_path, output_path):
     """从 EPUB 提取封面"""
     try:
-        print(f"  提取 EPUB 封面: {epub_path.name}")
-        book = epub.read_epub(epub_path)
+        import ebooklib
+        from ebooklib import epub
+        
+        print(f"  正在提取 EPUB 封面: {file_path.name}")
+        
+        book = epub.read_epub(file_path)
         
         # 尝试获取封面
-        cover_id = None
+        cover_item = None
         for item in book.get_items():
-            if item.get_type() == 9:  # 9 = ITEM_COVER_IMAGE
-                cover_id = item
+            if item.get_type() == ebooklib.ITEM_COVER:
+                cover_item = item
                 break
         
-        if not cover_id:
-            # 尝试从 metadata 获取封面引用
-            for meta in book.get_metadata('OPF', 'cover'):
-                cover_id = meta[0]
-                break
+        # 如果没有专门的 cover item，尝试从 metadata 获取
+        if not cover_item:
+            for item in book.get_items_of_type(ebooklib.ITEM_IMAGE):
+                # 检查文件名是否包含 cover 关键词
+                if 'cover' in item.get_name().lower():
+                    cover_item = item
+                    break
         
-        if not cover_id:
-            print(f"  ✗ EPUB 未找到封面: {epub_path.name}")
+        if not cover_item:
+            print("    ✗ 未找到封面")
             return False
         
-        # 获取封面图片数据
-        if hasattr(cover_id, 'get_content'):
-            cover_data = cover_id.get_content()
-        else:
-            cover_item = book.get_item_with_id(cover_id)
-            if not cover_item:
-                print(f"  ✗ EPUB 封面数据获取失败: {epub_path.name}")
-                return False
-            cover_data = cover_item.get_content()
+        # 保存封面
+        img_data = cover_item.get_content()
         
-        # 使用 PIL 处理图片
-        from io import BytesIO
-        img = Image.open(BytesIO(cover_data))
+        if resize_image(img_data, output_path):
+            print(f"    ✓ EPUB 封面提取成功")
+            return True
+        return False
         
-        # 转换为 RGB（处理 RGBA 或其他格式）
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
-        
-        # 调整尺寸
-        aspect_ratio = img.height / img.width
-        new_height = int(THUMBNAIL_WIDTH * aspect_ratio)
-        img = img.resize((THUMBNAIL_WIDTH, new_height), Image.Resampling.LANCZOS)
-        
-        # 保存为 JPEG
-        img.save(output_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
-        
-        print(f"  ✓ EPUB 封面提取成功: {epub_path.name}")
-        return True
-        
+    except ImportError:
+        print("    ✗ 需要安装 ebooklib: pip install ebooklib")
+        return False
     except Exception as e:
-        print(f"  ✗ EPUB 封面提取失败: {epub_path.name} - {e}")
+        print(f"    ✗ EPUB 封面提取失败: {e}")
         return False
 
-
-def extract_mobi_cover(mobi_path, output_path):
-    """MOBI 格式暂不支持"""
-    print(f"  ⚠ MOBI 封面提取暂不支持: {mobi_path.name}")
-    print(f"    建议：使用 Calibre 转换为 EPUB 或手动提取封面")
-    return False
-
+def extract_mobi_cover(file_path, output_path):
+    """从 MOBI 提取封面（使用 mobi 库）"""
+    try:
+        import mobi
+        
+        print(f"  正在提取 MOBI 封面: {file_path.name}")
+        
+        # 解压 MOBI
+        tempdir, filepath = mobi.extract(file_path)
+        
+        # 查找封面图片
+        cover_path = None
+        for root, dirs, files in os.walk(tempdir):
+            for file in files:
+                if 'cover' in file.lower() and file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                    cover_path = os.path.join(root, file)
+                    break
+            if cover_path:
+                break
+        
+        if not cover_path:
+            print("    ✗ 未找到封面")
+            return False
+        
+        # 读取并处理封面
+        with open(cover_path, 'rb') as f:
+            img_data = f.read()
+        
+        # 清理临时文件
+        import shutil
+        shutil.rmtree(tempdir, ignore_errors=True)
+        
+        if resize_image(img_data, output_path):
+            print(f"    ✓ MOBI 封面提取成功")
+            return True
+        return False
+        
+    except ImportError:
+        print("    ✗ 需要安装 mobi: pip install mobi")
+        return False
+    except Exception as e:
+        print(f"    ✗ MOBI 封面提取失败: {e}")
+        return False
 
 def main():
-    print("开始自动提取书籍封面...\n")
+    print("=" * 60)
+    print("封面提取工具")
+    print("=" * 60)
+    print()
     
     if not UPLOADS_DIR.exists():
-        print(f"错误: uploads 目录不存在 - {UPLOADS_DIR}")
+        print(f"✗ 书籍目录不存在: {UPLOADS_DIR}")
         sys.exit(1)
     
     # 查找所有书籍文件
     book_files = []
-    for ext in ['*.pdf', '*.epub', '*.mobi']:
-        book_files.extend(UPLOADS_DIR.glob(ext))
+    for ext in ['.pdf', '.epub', '.mobi']:
+        book_files.extend(UPLOADS_DIR.glob(f'*{ext}'))
+        book_files.extend(UPLOADS_DIR.glob(f'*{ext.upper()}'))
     
     if not book_files:
-        print("未找到书籍文件")
+        print("未找到任何书籍文件")
         return
     
     print(f"找到 {len(book_files)} 个书籍文件\n")
@@ -149,10 +203,11 @@ def main():
     fail_count = 0
     
     for book_file in book_files:
-        cover_path = get_cover_path(book_file)
+        cover_filename = get_cover_filename(book_file.name)
+        output_path = COVERS_DIR / cover_filename
         
         # 如果封面已存在，跳过
-        if cover_path.exists():
+        if output_path.exists():
             print(f"- 封面已存在，跳过: {book_file.name}")
             skip_count += 1
             continue
@@ -161,27 +216,27 @@ def main():
         success = False
         
         if ext == '.pdf':
-            success = extract_pdf_cover(book_file, cover_path)
+            success = extract_pdf_cover(book_file, output_path)
         elif ext == '.epub':
-            success = extract_epub_cover(book_file, cover_path)
+            success = extract_epub_cover(book_file, output_path)
         elif ext == '.mobi':
-            success = extract_mobi_cover(book_file, cover_path)
+            success = extract_mobi_cover(book_file, output_path)
         
         if success:
             success_count += 1
         else:
             fail_count += 1
+        
+        print()
     
-    print(f"\n完成！")
-    print(f"  成功: {success_count}")
-    print(f"  跳过: {skip_count}")
-    print(f"  失败: {fail_count}")
+    print("=" * 60)
+    print(f"完成！成功: {success_count}, 跳过: {skip_count}, 失败: {fail_count}")
+    print("=" * 60)
     
     if fail_count > 0:
-        print(f"\n对于失败的封面，你可以：")
-        print(f"1. 手动放置封面图片到 public/covers/ 目录")
-        print(f"2. 使用 Calibre 等工具提取封面")
+        print("\n提示：")
+        print("- 对于失败的书籍，可以手动截图或使用 Calibre 等工具提取封面")
+        print("- 将封面图片放到 public/covers/ 目录，文件名与书籍一致（扩展名为 .jpg）")
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
