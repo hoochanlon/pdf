@@ -25,5 +25,5 @@ ebook-meta "书籍.mobi" --get-cover="封面.jpg"
 ## 下一步计划
 
 * [ ] 更新书架书籍加载、刷新、完成后的动画效果（消除刷新闪烁问题）
-* [ ] epub、pdf、mobi 工具栏界面增加下载按钮
-* [ ] 支持本地 PDF、epub、mobi 阅读
+* [ ] epub、pdf、mobi 工具栏界面增加下载按钮 （方便下载）
+* [ ] 支持本地 PDF、epub、mobi 阅读 （方便本地阅读）
