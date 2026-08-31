@@ -257,6 +257,33 @@ function setupMobiWheelListener(view) {
   };
 }
 
+// 键盘翻页：iframe 内的 keydown 不冒泡到主文档，需在 iframe document 上单独接管。
+function setupMobiKeyboardListener(view) {
+  const contents = view.renderer?.getContents?.();
+  if (!contents || contents.length === 0) {
+    console.warn('[MOBI] 无法获取 renderer contents');
+    return null;
+  }
+  const iframeDoc = contents[0]?.doc;
+  if (!iframeDoc) {
+    console.warn('[MOBI] 无法获取 iframe document');
+    return null;
+  }
+
+  const keyHandler = (event) => {
+    if (event.target?.closest?.('input, textarea, select')) return;
+    const navKeys = { ArrowLeft: -1, ArrowUp: -1, PageUp: -1, ArrowRight: 1, ArrowDown: 1, PageDown: 1 };
+    const direction = navKeys[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    if (direction < 0) view.goLeft?.();
+    else view.goRight?.();
+  };
+
+  iframeDoc.addEventListener('keydown', keyHandler);
+  return () => iframeDoc.removeEventListener('keydown', keyHandler);
+}
+
 function setupMobiInteractions(view) {
   console.log('[MOBI] setupMobiInteractions 被调用，view=', view);
   
@@ -452,17 +479,22 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     // 按照 reader.js 的顺序，在 open() 之后添加事件监听器
     console.log('[MOBI] 步骤 5: 添加事件监听器');
     
-    // 存储 wheel 清理函数，用于每次 load 后重新绑定
+    // 存储 iframe 监听器清理函数，用于每次 load 后重新绑定（iframe 会重建）
     let currentWheelCleanup = null;
+    let currentKeyboardCleanup = null;
     
     mobiView.addEventListener('load', (e) => {
       console.log('[MOBI] ✓ load 事件触发:', e.detail);
       
-      // 每次 load 后重新绑定 wheel 监听器（因为 iframe 被重新创建）
+      // 每次 load 后重新绑定监听器（因为 iframe 被重新创建）
       if (currentWheelCleanup) {
         currentWheelCleanup();
       }
       currentWheelCleanup = setupMobiWheelListener(mobiView);
+      if (currentKeyboardCleanup) {
+        currentKeyboardCleanup();
+      }
+      currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
     });
     
     mobiView.addEventListener('relocate', (e) => {
@@ -508,8 +540,9 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     // 添加点击翻页支持
     setupMobiInteractions(mobiView);
     
-    // 初始绑定 wheel 监听器
+    // 初始绑定 iframe 监听器
     currentWheelCleanup = setupMobiWheelListener(mobiView);
+    currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
     
     // 设置进度条交互
     setupMobiProgressBar();

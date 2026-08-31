@@ -131,10 +131,10 @@ document.addEventListener('keydown', (event) => {
   
   // MOBI 导航
   if (state.renderMode === 'mobi' && state.mobiView) {
-    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
       event.preventDefault();
       state.mobiView.goLeft?.();
-    } else if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'PageDown') {
       event.preventDefault();
       state.mobiView.goRight?.();
     }
@@ -143,10 +143,10 @@ document.addEventListener('keydown', (event) => {
   
   // EPUB 导航
   if (state.rendition) {
-    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
       event.preventDefault();
       epubPrev();
-    } else if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'PageDown') {
       event.preventDefault();
       epubNext();
     }

@@ -197,7 +197,7 @@ function installEPUBNavigation(frameDocument) {
   // iframe 内键盘事件不会冒泡到主文档，需要单独接管。
   frameDocument.addEventListener('keydown', (event) => {
     if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
-    const navKeys = { ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1, ' ': 1 };
+    const navKeys = { ArrowLeft: -1, ArrowUp: -1, PageUp: -1, ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1 };
     const direction = navKeys[event.key];
     if (!direction) return;
     event.preventDefault();
