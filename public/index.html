@@ -158,8 +158,12 @@
         </div>
         <div class="pdf-workspace">
           <aside class="pdf-sidebar" id="pdf-sidebar" aria-hidden="true">
-            <div class="pdf-sidebar-header">目录</div>
+            <div class="pdf-sidebar-tabs" role="tablist" aria-label="PDF 侧栏面板">
+              <button type="button" role="tab" id="pdf-tab-outline" class="pdf-sidebar-tab" aria-selected="true">目录</button>
+              <button type="button" role="tab" id="pdf-tab-thumbs" class="pdf-sidebar-tab" aria-selected="false">缩略图</button>
+            </div>
             <ul class="pdf-outline" id="pdf-outline"></ul>
+            <div class="pdf-thumbnails" id="pdf-thumbnails" hidden></div>
           </aside>
           <div class="pdf-viewer-container" id="pdf-viewer-container" tabindex="0" aria-label="PDF 阅读内容">
             <div id="pdf-viewer" class="pdfViewer"></div>

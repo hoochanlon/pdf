@@ -86,6 +86,7 @@
   }
 
   .pdf-toolbar {
+    --pdf-control-height: 32px;
     min-height: 52px;
     flex-basis: 52px;
     gap: 8px;

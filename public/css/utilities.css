@@ -1,17 +1,17 @@
-.sidebar, #pdf-viewer-container, .epub-container, .epub-toc-list, #pdf-outline {
+.sidebar, #pdf-viewer-container, .epub-container, .epub-toc-list, #pdf-outline, #pdf-thumbnails {
   scrollbar-color: rgba(139, 135, 255, 0.85) rgba(255, 255, 255, 0.15);
 }
 
 .sidebar::-webkit-scrollbar, #pdf-viewer-container::-webkit-scrollbar,
 .epub-container::-webkit-scrollbar, .epub-toc-list::-webkit-scrollbar,
-#pdf-outline::-webkit-scrollbar {
+#pdf-outline::-webkit-scrollbar, #pdf-thumbnails::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 .sidebar::-webkit-scrollbar-track, #pdf-viewer-container::-webkit-scrollbar-track,
 .epub-container::-webkit-scrollbar-track, .epub-toc-list::-webkit-scrollbar-track,
-#pdf-outline::-webkit-scrollbar-track {
+#pdf-outline::-webkit-scrollbar-track, #pdf-thumbnails::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
   margin: 4px 0;
@@ -19,7 +19,7 @@
 
 .sidebar::-webkit-scrollbar-thumb, #pdf-viewer-container::-webkit-scrollbar-thumb,
 .epub-container::-webkit-scrollbar-thumb, .epub-toc-list::-webkit-scrollbar-thumb,
-#pdf-outline::-webkit-scrollbar-thumb {
+#pdf-outline::-webkit-scrollbar-thumb, #pdf-thumbnails::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, rgba(139, 135, 255, 0.85) 0%, rgba(113, 107, 242, 0.85) 100%);
   border-radius: 4px;
   border: 1px solid rgba(198, 193, 255, 0.4);
@@ -28,14 +28,14 @@
 
 .sidebar::-webkit-scrollbar-thumb:hover, #pdf-viewer-container::-webkit-scrollbar-thumb:hover,
 .epub-container::-webkit-scrollbar-thumb:hover, .epub-toc-list::-webkit-scrollbar-thumb:hover,
-#pdf-outline::-webkit-scrollbar-thumb:hover {
+#pdf-outline::-webkit-scrollbar-thumb:hover, #pdf-thumbnails::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(139, 135, 255, 0.95) 0%, rgba(113, 107, 242, 0.95) 100%);
   box-shadow: 0 0 8px rgba(113, 107, 242, 0.5);
 }
 
 .sidebar::-webkit-scrollbar-thumb:active, #pdf-viewer-container::-webkit-scrollbar-thumb:active,
 .epub-container::-webkit-scrollbar-thumb:active, .epub-toc-list::-webkit-scrollbar-thumb:active,
-#pdf-outline::-webkit-scrollbar-thumb:active {
+#pdf-outline::-webkit-scrollbar-thumb:active, #pdf-thumbnails::-webkit-scrollbar-thumb:active {
   background: linear-gradient(180deg, #8b87ff 0%, #716bf2 100%);
   box-shadow: 0 0 10px rgba(113, 107, 242, 0.7);
 }

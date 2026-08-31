@@ -228,9 +228,122 @@ async function loadPDFOutline(pdf, requestId) {
   }
 }
 
+// ---- 缩略图面板：懒加载渲染 + 受限并发 ----
+let thumbnailObserver = null;   // IntersectionObserver，滚动进入视口才渲染
+let thumbnailQueue = [];        // 待渲染任务队列
+let thumbnailActive = 0;        // 当前并行渲染任务数
+let thumbnailGeneration = 0;    // 代际号：切换/销毁文档时作废旧任务与 DOM
+const THUMBNAIL_CONCURRENCY = 3;
+
+function queueThumbnailTask(task) {
+  thumbnailQueue.push(task);
+  drainThumbnailQueue();
+}
+
+function drainThumbnailQueue() {
+  while (thumbnailActive < THUMBNAIL_CONCURRENCY && thumbnailQueue.length) {
+    const task = thumbnailQueue.shift();
+    thumbnailActive += 1;
+    Promise.resolve().then(task).finally(() => {
+      thumbnailActive -= 1;
+      drainThumbnailQueue();
+    });
+  }
+}
+
+function clearThumbnailTasks() {
+  thumbnailQueue = [];
+}
+
+function renderThumbnailPage(pageNumber, canvas, generation) {
+  queueThumbnailTask(async () => {
+    const pdf = state.pdf;
+    if (!pdf || generation !== thumbnailGeneration || state.pdf !== pdf) return;
+    try {
+      const page = await pdf.getPage(pageNumber);
+      if (generation !== thumbnailGeneration || state.pdf !== pdf) return;
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetWidth = Math.max(180, canvas.clientWidth || 200);
+      const viewport = page.getViewport({ scale: targetWidth / baseViewport.width });
+      canvas.width = Math.max(1, Math.floor(viewport.width));
+      canvas.height = Math.max(1, Math.floor(viewport.height));
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: context, viewport }).promise;
+    } catch (error) {
+      if (generation === thumbnailGeneration) {
+        console.warn(`PDF 第 ${pageNumber} 页缩略图渲染失败:`, error);
+      }
+    }
+  });
+}
+
+function buildPDFThumbnails() {
+  const panel = $('#pdf-thumbnails');
+  destroyPDFThumbnails();
+  const generation = ++thumbnailGeneration;
+  panel.replaceChildren();
+  for (let pageNumber = 1; pageNumber <= state.pdfTotalPages; pageNumber += 1) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pdf-thumb-item';
+    button.dataset.page = String(pageNumber);
+    button.setAttribute('aria-label', `跳转到第 ${pageNumber} 页`);
+    const frame = document.createElement('span');
+    frame.className = 'pdf-thumb-frame';
+    const canvas = document.createElement('canvas');
+    canvas.className = 'pdf-thumb-canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    frame.appendChild(canvas);
+    const label = document.createElement('span');
+    label.className = 'pdf-thumb-label';
+    label.textContent = String(pageNumber);
+    button.append(frame, label);
+    button.addEventListener('click', () => {
+      if (state.pdfViewer) state.pdfViewer.scrollPageIntoView({ pageNumber });
+      togglePDFSidebar(false);
+    });
+    panel.appendChild(button);
+  }
+  thumbnailObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const item = entry.target;
+      thumbnailObserver?.unobserve(item);
+      renderThumbnailPage(Number(item.dataset.page), item.querySelector('.pdf-thumb-canvas'), generation);
+    }
+  }, { root: panel, rootMargin: '160px 0px', threshold: 0.01 });
+  panel.querySelectorAll('.pdf-thumb-item').forEach((item) => thumbnailObserver.observe(item));
+}
+
+function destroyPDFThumbnails() {
+  thumbnailGeneration += 1;
+  thumbnailObserver?.disconnect();
+  thumbnailObserver = null;
+  clearThumbnailTasks();
+  $('#pdf-thumbnails').replaceChildren();
+}
+
+function bindPDFSidebarTabs() {
+  const outlineTab = $('#pdf-tab-outline');
+  const thumbsTab = $('#pdf-tab-thumbs');
+  const outline = $('#pdf-outline');
+  const panel = $('#pdf-thumbnails');
+  const selectPanel = (showThumbs) => {
+    outline.hidden = showThumbs;
+    panel.hidden = !showThumbs;
+    outlineTab.setAttribute('aria-selected', String(!showThumbs));
+    thumbsTab.setAttribute('aria-selected', String(showThumbs));
+  };
+  outlineTab.addEventListener('click', () => selectPanel(false));
+  thumbsTab.addEventListener('click', () => selectPanel(true));
+}
+
 function bindPDFControls() {
   if (controlsBound) return;
   controlsBound = true;
+  bindPDFSidebarTabs();
   $('#pdf-sidebar-toggle').addEventListener('click', () => togglePDFSidebar());
   $('#pdf-page-input').addEventListener('change', (event) => {
     const page = Number.parseInt(event.target.value, 10);
@@ -310,6 +423,11 @@ export async function renderPDF(url, filename, requestId, restoreLocation = null
   state.pdfRotation = 0;
   state.pdfRestorePending = false;
   $('#pdf-outline').replaceChildren();
+  destroyPDFThumbnails();
+  $('#pdf-tab-outline').setAttribute('aria-selected', 'true');
+  $('#pdf-tab-thumbs').setAttribute('aria-selected', 'false');
+  $('#pdf-outline').hidden = false;
+  $('#pdf-thumbnails').hidden = true;
   updatePDFReadingUI(0, 0, 0);
 
   try {
@@ -361,6 +479,7 @@ export async function renderPDF(url, filename, requestId, restoreLocation = null
       if (!isCurrentViewer()) return;
       state.pdfTotalPages = pagesCount;
       updatePDFReadingUI(state.pdfCurrentPage || 1, pagesCount, getPDFProgress());
+      buildPDFThumbnails();
       void loadPDFOutline(pdf, requestId);
     });
     state.pdfEventBus.on('pagesinit', () => {
@@ -424,6 +543,7 @@ export function destroyPDF() {
   }
   if (state.pdfScrollFrame) cancelAnimationFrame(state.pdfScrollFrame);
   state.pdfScrollFrame = 0;
+  destroyPDFThumbnails();
 
   const viewer = state.pdfViewer;
   const linkService = state.pdfLinkService;
