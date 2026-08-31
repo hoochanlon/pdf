@@ -4,7 +4,6 @@
 
 https://github.com/hoochanlon/pdf
 
-
 专业的阅读工具，如下：
 
 * https://www.pdfgear.com
@@ -15,7 +14,6 @@ https://github.com/hoochanlon/pdf
 * https://www.flowoss.com
 * https://github.com/johnfactotum/foliate-js
 
-
 ```
 # 安装 Calibre
 brew install --cask calibre  # macOS
@@ -23,3 +21,9 @@ brew install --cask calibre  # macOS
 # 提取封面
 ebook-meta "书籍.mobi" --get-cover="封面.jpg"
 ```
+
+## 下一步计划
+
+* [ ] 更新书架书籍加载、刷新、完成后的动画效果（消除刷新闪烁问题）
+* [ ] epub、pdf、mobi 工具栏界面增加下载按钮
+* [ ] 支持本地 PDF、epub、mobi 阅读
