@@ -20,6 +20,7 @@ import { loadBookList } from './js/library.js';
 import { getBookReadingLocation } from './js/reading.js';
 import { initTooltips } from './js/tooltip.js';
 import { initConfig, config } from './js/config-init.js';
+import { initLocalLibrary, clearLocalActiveState } from './js/local-library.js';
 
 console.log('app.js 所有模块导入完成');
 
@@ -72,6 +73,7 @@ function showReader(mode) {
 function openBook(filename, item) {
   document.querySelectorAll('.book-item').forEach((element) => element.classList.remove('active'));
   item.classList.add('active');
+  clearLocalActiveState();
   const savedLocation = getBookReadingLocation(filename);
   $('#empty-state').style.display = 'none';
   clearReader();
@@ -86,6 +88,40 @@ function openBook(filename, item) {
     state.renderMode = 'epub';
     showReader('epub');
     void renderEPUB(url, filename, state.requestId, savedLocation);
+  } else {
+    state.renderMode = 'pdf';
+    showReader('pdf');
+    void renderPDF(url, filename, state.requestId, savedLocation);
+  }
+
+  if (isMobile()) closeSidebar();
+}
+
+// 打开本地文件（来自 local-library.js 的回调）
+function openLocalBook({ url, filename, displayName, file }) {
+  // 取消远程书架的 active 高亮
+  document.querySelectorAll('.book-item:not(.local-book-item)').forEach((el) => el.classList.remove('active'));
+  const savedLocation = getBookReadingLocation(filename);
+  $('#empty-state').style.display = 'none';
+  clearReader();
+  state.activeFile = filename;
+
+  // 把显示名注入 metadata，供阅读器工具栏显示正确书名
+  const base = displayName.replace(/\.[^.]+$/, '');
+  const sep = Math.max(base.lastIndexOf('-'), base.lastIndexOf('—'), base.lastIndexOf('–'));
+  const title = sep > 0 ? base.slice(0, sep).trim() : base;
+  const author = sep > 0 ? base.slice(sep + 1).trim() : '';
+  state.booksMetadata[filename] = { title, author, category: '本地文件' };
+
+  if (isMobi(displayName)) {
+    state.renderMode = 'mobi';
+    showReader('mobi');
+    void renderMOBI(url, filename, state.requestId, savedLocation);
+  } else if (isEpub(displayName)) {
+    state.renderMode = 'epub';
+    showReader('epub');
+    // 传入原始 File 对象，让 renderEPUB 直接读 ArrayBuffer，避免 blob URL fetch 超时
+    void renderEPUB(url, filename, state.requestId, savedLocation, file);
   } else {
     state.renderMode = 'pdf';
     showReader('pdf');
@@ -213,4 +249,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initTooltips();
   initSidebar();
   loadBookList(openBook);
+  void initLocalLibrary(openLocalBook);
 });

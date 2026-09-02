@@ -412,10 +412,21 @@ function renderBookList() {
       name.className = 'book-name';
       name.textContent = book.title;
       
-      // 第2行：作者
+      // 第2行：作者 + 进度（同一行）
       const author = document.createElement('div');
-      author.className = 'book-meta book-author';
-      author.textContent = book.author;
+      author.className = 'book-meta book-author-row';
+
+      const authorText = document.createElement('span');
+      authorText.className = 'book-author';
+      authorText.textContent = book.author;
+      author.appendChild(authorText);
+
+      if (progressInfo) {
+        const progressEl = document.createElement('span');
+        progressEl.className = 'book-progress-info';
+        progressEl.textContent = progressInfo;
+        author.appendChild(progressEl);
+      }
       
       // 第3行：分类徽章
       const category = document.createElement('div');
@@ -424,7 +435,7 @@ function renderBookList() {
       categoryBadge.className = 'category-badge';
       categoryBadge.textContent = book.category;
       category.appendChild(categoryBadge);
-      
+
       infoSpan.append(name, author, category);
       
       item.appendChild(coverThumb);
@@ -538,7 +549,21 @@ function updateBookProgress(file) {
   if (progressText && progressInfo) {
     progressText.textContent = progressInfo;
   }
-}
+
+  // 列表视图：更新进度文字
+  const progressInfoEl = item.querySelector('.book-progress-info');
+  if (progressInfoEl) {
+    progressInfoEl.textContent = progressInfo;
+  } else if (progressInfo) {
+    // 首次有进度时动态插入到作者行
+    const authorRow = item.querySelector('.book-author-row');
+    if (authorRow) {
+      const progressEl = document.createElement('span');
+      progressEl.className = 'book-progress-info';
+      progressEl.textContent = progressInfo;
+      authorRow.appendChild(progressEl);
+    }
+  }}
 
 function updateBookCount(count) {
   const bookCountEl = $('#book-count');

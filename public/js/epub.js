@@ -391,7 +391,7 @@ function updateSavedEPUBProgress(location, progress) {
   );
 }
 
-export async function renderEPUB(url, filename, requestId, restoreLocation = null) {
+export async function renderEPUB(url, filename, requestId, restoreLocation = null, fileObject = null) {
   const container = $('#epub-container');
   clearEPUBProgressTracking();
   const resumeLocation = restoreLocation?.kind === 'epub-cfi'
@@ -423,7 +423,16 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     await waitForLibrary('ePub', () => typeof window.ePub === 'function');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
 
-    const book = window.ePub(url);
+    // 本地 File 对象：先读成 ArrayBuffer 再交给 epubjs，
+    // 避免 epubjs 用 fetch 处理 blob URL 时的超时问题。
+    let epubSource = url;
+    if (fileObject instanceof File || fileObject instanceof Blob) {
+      setEPUBStatus('loading', '正在加载 EPUB', '正在读取文件内容…');
+      epubSource = await fileObject.arrayBuffer();
+      if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
+    }
+
+    const book = window.ePub(epubSource);
     state.book = book;
     const rendition = book.renderTo(container, {
       width: '100%',
@@ -456,11 +465,11 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     const title = book.package?.metadata?.title || book.metadata?.title || filename;
     $('#epub-title').textContent = title;
 
-    // 设置下载链接
+    // 设置下载链接：本地文件用 blob URL，远程文件用原始 URL
     const dlLink = $('#epub-download');
     if (dlLink) {
       dlLink.href = url;
-      dlLink.download = filename.split('/').pop();
+      dlLink.download = filename.split('/').pop().replace(/^__local__\//, '');
     }
 
     await waitForStage(rendition.display(resumeLocation || undefined), '渲染 EPUB 内容');

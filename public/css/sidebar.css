@@ -1,7 +1,7 @@
 .sidebar {
   width: var(--sidebar-width);
   height: 100%;
-  padding: 22px 16px;
+  padding: 16px 16px 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -18,42 +18,6 @@
   padding-left: 0;
   opacity: 0;
   border-right: 0;
-}
-
-.sidebar-heading {
-  flex-shrink: 0;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 6px 20px;
-  margin-bottom: 4px;
-  border-bottom: 2px solid var(--sidebar-border);
-  background: linear-gradient(to bottom, rgba(139, 135, 255, 0.03) 0%, transparent 100%);
-}
-
-.eyebrow {
-  color: var(--primary);
-  font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 1.4px;
-}
-
-.sidebar h2 {
-  margin-top: 3px;
-  font-size: 21px;
-  line-height: 1.2;
-}
-
-.sidebar-count {
-  display: grid;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 7px;
-  place-items: center;
-  color: var(--primary-dark);
-  background: #e9e8ff;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .library-tools {
@@ -214,10 +178,200 @@
   text-align: center;
 }
 
+/* ── Tab 导航 ─────────────────────────────────────────────── */
+
+.sidebar-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 8px;
+  background: #eef0f8;
+  border-radius: 10px;
+}
+
+.sidebar-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  height: 36px;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  white-space: nowrap;
+}
+
+.sidebar-tab:hover {
+  color: var(--primary-dark);
+  background: rgba(255,255,255,0.6);
+}
+
+.sidebar-tab[aria-selected="true"] {
+  color: var(--primary-dark);
+  background: #fff;
+  font-weight: 650;
+  box-shadow: 0 1px 4px rgba(88, 80, 236, 0.12), 0 0 0 1px rgba(88, 80, 236, 0.08);
+}
+
+.tab-count {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  place-items: center;
+  background: #e9e8ff;
+  color: var(--primary-dark);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sidebar-tab[aria-selected="true"] .tab-count {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ── 面板 ─────────────────────────────────────────────────── */
+
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-panel[hidden] {
+  display: none;
+}
+
+/* ── 本地书库面板内容 ─────────────────────────────────────── */
+
+.local-actions {
+  display: flex;
+  gap: 8px;
+  padding: 14px 6px 10px;
+  flex-shrink: 0;
+}
+
+.local-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  white-space: nowrap;
+}
+
+.local-btn--primary {
+  color: #fff;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.local-btn--primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.local-btn--secondary {
+  color: var(--primary-dark);
+  background: #f0efff;
+  border: 1px solid #c7c4ff;
+}
+
+.local-btn--secondary:hover {
+  background: #e4e3ff;
+  border-color: #a7a4f5;
+}
+
+.local-btn--danger {
+  color: #dc2626;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  margin-left: auto;
+}
+
+.local-btn--danger:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+/* 单条目删除按钮 */
+.local-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 120ms, background 120ms;
+  z-index: 2;
+}
+
+.local-book-item:hover .local-delete-btn,
+.local-book-item:focus-within .local-delete-btn {
+  display: flex;
+}
+
+.local-delete-btn:hover {
+  color: #dc2626;
+  background: #fff;
+  border-color: #fca5a5;
+}
+
+.local-dir-name {
+  padding: 0 10px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.local-dir-name::before {
+  content: '📁 ';
+}
+
+.local-empty {
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* ── 主书单 ───────────────────────────────────────────────── */
+
 .book-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
   display: grid;
   gap: 12px;
   padding: 16px 12px 16px 0;
@@ -590,6 +744,34 @@
 .book-author {
   color: var(--text-muted);
   font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-author-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.book-author-row .book-author {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.book-author-row .book-progress-info {
+  flex-shrink: 0;
+}
+
+.book-progress-info {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;

@@ -53,94 +53,187 @@
 
   <main class="app-layout">
     <aside class="sidebar" id="sidebar" aria-label="书籍列表">
-      <div class="sidebar-heading">
-        <div>
-          <span class="eyebrow">LIBRARY</span>
-          <h2>我的书架</h2>
-        </div>
-        <span class="sidebar-count" id="sidebar-count">0</span>
+
+      <!-- Tab 导航 -->
+      <div class="sidebar-tabs" role="tablist" aria-label="书库切换">
+        <button class="sidebar-tab" id="tab-online" role="tab"
+          aria-selected="true" aria-controls="panel-online" type="button">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          在线书库
+          <span class="tab-count" id="sidebar-count">0</span>
+        </button>
+        <button class="sidebar-tab" id="tab-local" role="tab"
+          aria-selected="false" aria-controls="panel-local" type="button">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          本地书库
+          <span class="tab-count" id="local-count">0</span>
+        </button>
       </div>
-      <div class="library-tools">
-        <div class="library-search-row">
-          <label class="library-search">
-            <span class="sr-only">搜索书籍</span>
-            <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
-          </label>
-        </div>
-        <div class="library-actions-row">
-          <button class="library-filter-toggle" id="library-filter-toggle" type="button"
-            aria-expanded="false" aria-controls="library-filter-panel">
-            <span aria-hidden="true">☷</span>
-            <span>筛选</span>
-            <span class="library-filter-count" id="library-filter-count" aria-hidden="true">0</span>
-          </button>
-          <button class="library-view-toggle" id="library-view-toggle" type="button">
-            <span aria-hidden="true" id="view-icon">⊞</span>
-            <span>排列</span>
-          </button>
-          <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
-        </div>
-        <div class="library-filter-panel" id="library-filter-panel" hidden>
-          <div class="library-filters">
-            <div class="library-filter">
-              <span id="filter-label-author">作者</span>
-              <div class="cs-wrap cs-wrap--filter" id="cs-author-wrap">
-                <button class="cs-trigger" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-author">
-                  <span class="cs-label">全部作者</span>
-                  <span class="cs-arrow" aria-hidden="true"></span>
-                </button>
-                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-author" hidden></div>
+
+      <!-- 在线书库面板 -->
+      <div class="sidebar-panel" id="panel-online" role="tabpanel" aria-labelledby="tab-online">
+        <div class="library-tools">
+          <div class="library-search-row">
+            <label class="library-search">
+              <span class="sr-only">搜索书籍</span>
+              <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+            </label>
+          </div>
+          <div class="library-actions-row">
+            <button class="library-filter-toggle" id="library-filter-toggle" type="button"
+              aria-expanded="false" aria-controls="library-filter-panel">
+              <span aria-hidden="true">☷</span>
+              <span>筛选</span>
+              <span class="library-filter-count" id="library-filter-count" aria-hidden="true">0</span>
+            </button>
+            <button class="library-view-toggle" id="library-view-toggle" type="button">
+              <span aria-hidden="true" id="view-icon">⊞</span>
+              <span>排列</span>
+            </button>
+            <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
+          </div>
+          <div class="library-filter-panel" id="library-filter-panel" hidden>
+            <div class="library-filters">
+              <div class="library-filter">
+                <span id="filter-label-author">作者</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-author-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-author">
+                    <span class="cs-label">全部作者</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-author" hidden></div>
+                </div>
               </div>
-            </div>
-            <div class="library-filter">
-              <span id="filter-label-format">格式</span>
-              <div class="cs-wrap cs-wrap--filter" id="cs-format-wrap">
-                <button class="cs-trigger" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-format">
-                  <span class="cs-label">全部格式</span>
-                  <span class="cs-arrow" aria-hidden="true"></span>
-                </button>
-                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-format" hidden></div>
+              <div class="library-filter">
+                <span id="filter-label-format">格式</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-format-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-format">
+                    <span class="cs-label">全部格式</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-format" hidden></div>
+                </div>
               </div>
-            </div>
-            <div class="library-filter">
-              <span id="filter-label-language">语言</span>
-              <div class="cs-wrap cs-wrap--filter" id="cs-language-wrap">
-                <button class="cs-trigger" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-language">
-                  <span class="cs-label">全部语言</span>
-                  <span class="cs-arrow" aria-hidden="true"></span>
-                </button>
-                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-language" hidden></div>
+              <div class="library-filter">
+                <span id="filter-label-language">语言</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-language-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-language">
+                    <span class="cs-label">全部语言</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-language" hidden></div>
+                </div>
               </div>
-            </div>
-            <div class="library-filter library-filter-status">
-              <span id="filter-label-status">阅读状态</span>
-              <div class="cs-wrap cs-wrap--filter" id="cs-status-wrap">
-                <button class="cs-trigger" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-status">
-                  <span class="cs-label">全部状态</span>
-                  <span class="cs-arrow" aria-hidden="true"></span>
-                </button>
-                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-status" hidden></div>
+              <div class="library-filter library-filter-status">
+                <span id="filter-label-status">阅读状态</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-status-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-status">
+                    <span class="cs-label">全部状态</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-status" hidden></div>
+                </div>
               </div>
-            </div>
-            <div class="library-filter library-filter-category">
-              <span id="filter-label-category">分类</span>
-              <div class="cs-wrap cs-wrap--filter" id="cs-category-wrap">
-                <button class="cs-trigger" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-category">
-                  <span class="cs-label">全部分类</span>
-                  <span class="cs-arrow" aria-hidden="true"></span>
-                </button>
-                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-category" hidden></div>
+              <div class="library-filter library-filter-category">
+                <span id="filter-label-category">分类</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-category-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-category">
+                    <span class="cs-label">全部分类</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-category" hidden></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+        <ul class="book-list" id="book-list"></ul>
       </div>
-      <ul class="book-list" id="book-list"></ul>
+
+      <!-- 本地书库面板 -->
+      <div class="sidebar-panel" id="panel-local" role="tabpanel" aria-labelledby="tab-local" hidden>
+        <div class="library-tools">
+          <div class="library-search-row">
+            <label class="library-search">
+              <span class="sr-only">搜索本地书籍</span>
+              <input id="local-book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+            </label>
+          </div>
+          <div class="library-actions-row">
+            <button class="library-filter-toggle" id="local-filter-toggle" type="button"
+              aria-expanded="false" aria-controls="local-filter-panel">
+              <span aria-hidden="true">☷</span>
+              <span>筛选</span>
+              <span class="library-filter-count" id="local-filter-count" aria-hidden="true">0</span>
+            </button>
+            <button class="library-view-toggle" id="local-view-toggle" type="button">
+              <span aria-hidden="true" id="local-view-icon">⊞</span>
+              <span>排列</span>
+            </button>
+            <button class="library-reset" id="local-filter-reset" type="button" disabled>清除</button>
+          </div>
+          <div class="library-filter-panel" id="local-filter-panel" hidden>
+            <div class="library-filters">
+              <div class="library-filter">
+                <span id="local-filter-label-author">作者</span>
+                <div class="cs-wrap cs-wrap--filter" id="local-cs-author-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-author">
+                    <span class="cs-label">全部作者</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-author" hidden></div>
+                </div>
+              </div>
+              <div class="library-filter library-filter-status">
+                <span id="local-filter-label-status">阅读状态</span>
+                <div class="cs-wrap cs-wrap--filter" id="local-cs-status-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-status">
+                    <span class="cs-label">全部状态</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-status" hidden></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="local-actions">
+          <button class="local-btn local-btn--primary" id="local-open-dir" type="button">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            打开文件夹
+          </button>
+          <button class="local-btn local-btn--secondary" id="local-open-file" type="button">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            选择文件
+          </button>
+          <button class="local-btn local-btn--danger" id="local-clear-all" type="button" hidden>
+            清空
+          </button>
+        </div>
+        <p class="local-dir-name" id="local-dir-name" hidden></p>
+        <p class="local-empty" id="local-empty">
+          打开文件夹或选择文件后，<br>这里会显示你的本地电子书
+        </p>
+        <ul class="book-list view-list" id="local-book-list"></ul>
+      </div>
+
     </aside>
 
     <div class="overlay" id="overlay"></div>
