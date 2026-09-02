@@ -216,6 +216,25 @@ function updateEmptyState(title, message = '') {
   if (emptyStateMessage) emptyStateMessage.textContent = message;
 }
 
+function renderSkeletons(count = 5) {
+  const list = $('#book-list');
+  list.classList.add('is-loading');
+  list.replaceChildren();
+  for (let i = 0; i < count; i++) {
+    const sk = document.createElement('li');
+    sk.className = 'book-skeleton';
+    sk.innerHTML = `
+      <div class="book-skeleton-thumb"></div>
+      <div class="book-skeleton-body">
+        <div class="book-skeleton-line title"></div>
+        <div class="book-skeleton-line title2"></div>
+        <div class="book-skeleton-line author"></div>
+        <div class="book-skeleton-line badge"></div>
+      </div>`;
+    list.appendChild(sk);
+  }
+}
+
 function renderBookList() {
   const list = $('#book-list');
   const emptyState = $('#empty-state');
@@ -225,6 +244,9 @@ function renderBookList() {
   $('#sidebar-count').textContent = visibleBooks.length;
   $('#library-reset').disabled = !filtered;
   updateFilterSummary();
+
+  // 先淡出，再替换内容，消除闪烁
+  list.classList.add('is-loading');
   list.replaceChildren();
 
   if (!books.length) {
@@ -273,17 +295,19 @@ function renderBookList() {
       coverImage.className = 'book-cover-image';
       coverImage.alt = book.title;
       
-      // 异步加载封面
+      // 加载封面（预加载后缓存命中时直接显示，无闪烁）
       getBookCover(book.file).then(coverUrl => {
         if (coverUrl) {
+          coverImage.onload = () => coverImage.classList.add('loaded');
           coverImage.src = coverUrl;
-          coverImage.style.display = 'block';
+          // 图片已在浏览器缓存时 complete 立即为 true，onload 不会再触发
+          if (coverImage.complete && coverImage.naturalWidth > 0) {
+            coverImage.classList.add('loaded');
+          }
         } else {
-          // 没有封面时，显示默认样式（纯色背景 + 书名）
           cover.classList.add('no-cover');
         }
-      }).catch(err => {
-        console.error('加载封面失败:', err);
+      }).catch(() => {
         cover.classList.add('no-cover');
       });
       
@@ -343,17 +367,18 @@ function renderBookList() {
       coverImage.className = 'book-cover-thumb-image';
       coverImage.alt = book.title;
       
-      // 异步加载封面
+      // 加载封面（预加载后缓存命中时直接显示，无闪烁）
       getBookCover(book.file).then(coverUrl => {
         if (coverUrl) {
+          coverImage.onload = () => coverImage.classList.add('loaded');
           coverImage.src = coverUrl;
-          coverImage.style.display = 'block';
+          if (coverImage.complete && coverImage.naturalWidth > 0) {
+            coverImage.classList.add('loaded');
+          }
         } else {
-          // 没有封面时，显示默认样式
           coverThumb.classList.add('no-cover');
         }
-      }).catch(err => {
-        console.error('加载封面失败:', err);
+      }).catch(() => {
         coverThumb.classList.add('no-cover');
       });
       
@@ -403,7 +428,14 @@ function renderBookList() {
         openBookHandler(book.file, item);
       }
     });
+    // 动画完成后标记，防止重排时重复播放
+    item.addEventListener('animationend', () => item.classList.add('entered'), { once: true });
     list.appendChild(item);
+  });
+
+  // 内容填充完毕，移除 is-loading 触发淡入
+  requestAnimationFrame(() => {
+    list.classList.remove('is-loading');
   });
 }
 
@@ -539,6 +571,7 @@ export async function loadBookList(onOpenBook) {
   openBookHandler = onOpenBook;
   bindControls();
   updateViewUI(); // 初始化视图UI
+  renderSkeletons(5); // 显示骨架屏，避免空列表闪烁
 
   try {
     console.log('[loadBookList] 开始 fetch');
@@ -566,19 +599,17 @@ export async function loadBookList(onOpenBook) {
     });
     
     updateBookCount(books.length);
-    console.log('[loadBookList] 开始 populateFilterOptions');
     populateFilterOptions();
-    console.log('[loadBookList] 开始 renderBookList');
-    renderBookList();
-    console.log('[loadBookList] 完成');
-    
-    // 后台预加载封面
+
+    // 先预加载所有封面，图片就绪后再渲染列表，避免「背景色→封面图」的闪烁
     if (books.length > 0) {
       const bookFiles = books.map(b => b.file);
-      preloadCovers(bookFiles).catch(err => {
-        console.warn('预加载封面失败:', err);
-      });
+      await preloadCovers(bookFiles).catch(() => {}); // 失败不阻塞
     }
+
+    console.log('[loadBookList] 封面预加载完成，开始渲染');
+    renderBookList();
+    console.log('[loadBookList] 完成');
   } catch (error) {
     console.error('加载书籍列表失败:', error);
     books = [];

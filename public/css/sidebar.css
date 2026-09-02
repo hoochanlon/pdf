@@ -224,6 +224,81 @@
   list-style: none;
   scrollbar-width: thin;
   scrollbar-gutter: stable;
+  /* 整体列表淡入：避免刷新时白屏闪烁 */
+  transition: opacity 200ms ease;
+}
+
+/* 加载时降低不透明度，防止空列表闪烁 */
+.book-list.is-loading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- 骨架屏 ---- */
+.book-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--item-bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: 108px;
+  overflow: hidden;
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+  opacity: 0;
+  animation: skeletonEnter 250ms ease forwards, skeletonPulse 1.4s 250ms ease-in-out infinite;
+}
+
+.book-skeleton:nth-child(1) { animation-delay: 0ms,   0ms; }
+.book-skeleton:nth-child(2) { animation-delay: 60ms,  60ms; }
+.book-skeleton:nth-child(3) { animation-delay: 120ms, 120ms; }
+.book-skeleton:nth-child(4) { animation-delay: 180ms, 180ms; }
+.book-skeleton:nth-child(5) { animation-delay: 240ms, 240ms; }
+
+@keyframes skeletonEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 0.9; }
+}
+
+.book-skeleton-thumb {
+  width: 56px;
+  height: 74px;
+  min-width: 56px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e2e6f0 0%, #eff2f8 50%, #e2e6f0 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.book-skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.book-skeleton-line {
+  border-radius: 4px;
+  background: linear-gradient(90deg, #e2e6f0 0%, #eff2f8 50%, #e2e6f0 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.book-skeleton-line.title  { height: 14px; width: 85%; }
+.book-skeleton-line.title2 { height: 14px; width: 60%; }
+.book-skeleton-line.author { height: 12px; width: 45%; margin-top: 2px; }
+.book-skeleton-line.badge  { height: 20px; width: 52px; border-radius: 4px; margin-top: 2px; }
+
+@keyframes shimmer {
+  0%   { background-position:  200% center; }
+  100% { background-position: -200% center; }
 }
 
 .book-list::-webkit-scrollbar {
@@ -270,8 +345,45 @@
   border-radius: 8px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 200ms ease;
   position: relative;
+  /* 入场动画初始状态 */
+  opacity: 0;
+  transform: translateY(8px);
+  animation: bookItemEnter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 书籍入场动画 */
+@keyframes bookItemEnter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 入场动画延迟：依次错开，最多到第 12 项，之后统一快速显示 */
+.book-item:nth-child(1)  { animation-delay:  20ms; }
+.book-item:nth-child(2)  { animation-delay:  55ms; }
+.book-item:nth-child(3)  { animation-delay:  90ms; }
+.book-item:nth-child(4)  { animation-delay: 125ms; }
+.book-item:nth-child(5)  { animation-delay: 160ms; }
+.book-item:nth-child(6)  { animation-delay: 195ms; }
+.book-item:nth-child(7)  { animation-delay: 230ms; }
+.book-item:nth-child(8)  { animation-delay: 265ms; }
+.book-item:nth-child(9)  { animation-delay: 295ms; }
+.book-item:nth-child(10) { animation-delay: 320ms; }
+.book-item:nth-child(11) { animation-delay: 340ms; }
+.book-item:nth-child(n+12) { animation-delay: 360ms; }
+
+/* 已完成动画的条目（通过 JS 标记）不重复播放 */
+.book-item.entered {
+  opacity: 1;
+  transform: none;
+  animation: none;
 }
 
 /* 网格视图：封面卡片样式 */
@@ -434,11 +546,23 @@
     inset -1px 0 2px rgba(0, 0, 0, 0.1);
 }
 
+/* 图片始终铺满容器，靠 opacity 控制显隐，避免 display 切换导致 transition 失效 */
 .book-list.view-list .book-cover-thumb-image {
-  display: none;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 240ms ease;
+  /* 加载完成前不占空间、不阻挡交互 */
+  pointer-events: none;
+}
+
+/* 图片加载完成：平滑盖住背景色 */
+.book-list.view-list .book-cover-thumb-image.loaded {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .book-list.view-list .book-info {
@@ -584,6 +708,12 @@
   height: 100%;
   object-fit: cover;
   z-index: 0;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.book-list.view-grid .book-cover-image.loaded {
+  opacity: 1;
 }
 
 /* 无封面时显示书名 */
@@ -602,7 +732,7 @@
 }
 
 /* 有封面时隐藏书名 */
-.book-list.view-grid .book-cover:has(.book-cover-image[style*="display: block"]) .book-cover-title {
+.book-list.view-grid .book-cover:has(.book-cover-image.loaded) .book-cover-title {
   display: none;
 }
 
@@ -691,7 +821,7 @@
 }
 
 /* 当封面图片加载后，隐藏格式文字 */
-.book-cover-thumb:has(.book-cover-thumb-image[style*="display: block"]) .book-cover-thumb-badge {
+.book-cover-thumb:has(.book-cover-thumb-image.loaded) .book-cover-thumb-badge {
   display: none;
 }
 
