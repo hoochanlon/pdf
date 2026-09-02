@@ -82,36 +82,61 @@
         </div>
         <div class="library-filter-panel" id="library-filter-panel" hidden>
           <div class="library-filters">
-            <label class="library-filter">
-              <span>作者</span>
-              <select id="book-author-filter" aria-label="按作者筛选">
-                <option value="">全部作者</option>
-              </select>
-            </label>
-            <label class="library-filter">
-              <span>格式</span>
-              <select id="book-format-filter" aria-label="按文件格式筛选">
-                <option value="">全部格式</option>
-              </select>
-            </label>
-            <label class="library-filter">
-              <span>语言</span>
-              <select id="book-language-filter" aria-label="按语言筛选">
-                <option value="">全部语言</option>
-              </select>
-            </label>
-            <label class="library-filter library-filter-status">
-              <span>阅读状态</span>
-              <select id="book-status-filter" aria-label="按阅读状态筛选">
-                <option value="">全部状态</option>
-              </select>
-            </label>
-            <label class="library-filter library-filter-category">
-              <span>分类</span>
-              <select id="book-category-filter" aria-label="按分类筛选">
-                <option value="">全部分类</option>
-              </select>
-            </label>
+            <div class="library-filter">
+              <span id="filter-label-author">作者</span>
+              <div class="cs-wrap cs-wrap--filter" id="cs-author-wrap">
+                <button class="cs-trigger" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-author">
+                  <span class="cs-label">全部作者</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-author" hidden></div>
+              </div>
+            </div>
+            <div class="library-filter">
+              <span id="filter-label-format">格式</span>
+              <div class="cs-wrap cs-wrap--filter" id="cs-format-wrap">
+                <button class="cs-trigger" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-format">
+                  <span class="cs-label">全部格式</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-format" hidden></div>
+              </div>
+            </div>
+            <div class="library-filter">
+              <span id="filter-label-language">语言</span>
+              <div class="cs-wrap cs-wrap--filter" id="cs-language-wrap">
+                <button class="cs-trigger" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-language">
+                  <span class="cs-label">全部语言</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-language" hidden></div>
+              </div>
+            </div>
+            <div class="library-filter library-filter-status">
+              <span id="filter-label-status">阅读状态</span>
+              <div class="cs-wrap cs-wrap--filter" id="cs-status-wrap">
+                <button class="cs-trigger" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-status">
+                  <span class="cs-label">全部状态</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-status" hidden></div>
+              </div>
+            </div>
+            <div class="library-filter library-filter-category">
+              <span id="filter-label-category">分类</span>
+              <div class="cs-wrap cs-wrap--filter" id="cs-category-wrap">
+                <button class="cs-trigger" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-category">
+                  <span class="cs-label">全部分类</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-category" hidden></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -150,12 +175,14 @@
             </a>
             <label class="pdf-zoom-control" for="pdf-zoom-select">
               <span class="sr-only">缩放模式</span>
-              <select id="pdf-zoom-select" aria-label="缩放模式">
-                <option value="auto">自动</option>
-                <option value="page-width">适合宽度</option>
-                <option value="page-fit">适合页面</option>
-                <option value="page-actual">实际大小</option>
-              </select>
+              <div class="cs-wrap cs-wrap--toolbar" id="cs-zoom-wrap">
+                <button class="cs-trigger" id="pdf-zoom-select" type="button"
+                  aria-haspopup="listbox" aria-expanded="false" aria-label="缩放模式">
+                  <span class="cs-label">适合宽度</span>
+                  <span class="cs-arrow" aria-hidden="true"></span>
+                </button>
+                <div class="cs-listbox" role="listbox" aria-label="缩放模式" hidden></div>
+              </div>
             </label>
           </div>
         </div>

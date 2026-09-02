@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { $, bookListUrl, isEpub, isMobi } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
+import { CustomSelect } from './select.js';
 
 const STATUS_OPTIONS = [
   { value: 'unread', label: '未读' },
@@ -28,6 +29,13 @@ let books = [];
 let openBookHandler = null;
 let controlsBound = false;
 let currentView = localStorage.getItem('library-view') || 'list'; // 'list' 或 'grid'
+
+// 五个筛选器的 CustomSelect 实例
+let csAuthor = null;
+let csFormat = null;
+let csLanguage = null;
+let csStatus = null;
+let csCategory = null;
 
 function normalizeText(value) {
   return String(value ?? '').trim().toLocaleLowerCase();
@@ -142,11 +150,14 @@ function createOption(value, label, count) {
   return option;
 }
 
-function replaceOptions(select, options, emptyLabel) {
-  const selectedValue = select.value;
-  select.replaceChildren(createOption('', emptyLabel));
-  options.forEach((option) => select.appendChild(option));
-  select.value = options.some((option) => option.value === selectedValue) ? selectedValue : '';
+function replaceOptions(csInstance, options, emptyLabel) {
+  const currentValue = csInstance.getValue();
+  const allOptions = [{ value: '', label: emptyLabel }, ...options.map(o => ({ value: o.value, label: o.textContent }))];
+  csInstance.setOptions(allOptions);
+  // setOptions 内部会保持旧值（若还存在），否则重置
+  if (!allOptions.some(o => o.value === currentValue)) {
+    csInstance.setValue('', true);
+  }
 }
 
 function updateFilterSummary() {
@@ -202,11 +213,11 @@ function populateFilterOptions() {
     .sort((left, right) => left.localeCompare(right, 'zh-CN'))
     .map((category) => createOption(category, category, categoryCounts.get(category)));
 
-  replaceOptions($('#book-author-filter'), authorOptions, '全部作者');
-  replaceOptions($('#book-format-filter'), formatOptions, '全部格式');
-  replaceOptions($('#book-language-filter'), languageOptions, '全部语言');
-  replaceOptions($('#book-status-filter'), statusOptions, '全部状态');
-  replaceOptions($('#book-category-filter'), categoryOptions, '全部分类');
+  replaceOptions(csAuthor,   authorOptions,   '全部作者');
+  replaceOptions(csFormat,   formatOptions,   '全部格式');
+  replaceOptions(csLanguage, languageOptions, '全部语言');
+  replaceOptions(csStatus,   statusOptions,   '全部状态');
+  replaceOptions(csCategory, categoryOptions, '全部分类');
 }
 
 function updateEmptyState(title, message = '') {
@@ -443,28 +454,33 @@ function bindControls() {
   if (controlsBound) return;
   controlsBound = true;
 
+  // 初始化五个筛选器 CustomSelect
+  const makeFilterSelect = (wrapId, onChangeFn) => {
+    const wrap = $(`#${wrapId}`);
+    return new CustomSelect(
+      wrap.querySelector('.cs-trigger'),
+      wrap.querySelector('.cs-listbox'),
+      { onChange: (v) => { onChangeFn(v); renderBookList(); } }
+    );
+  };
+
+  csAuthor   = makeFilterSelect('cs-author-wrap',   (v) => { filters.author   = v; });
+  csFormat   = makeFilterSelect('cs-format-wrap',   (v) => { filters.format   = v; });
+  csLanguage = makeFilterSelect('cs-language-wrap', (v) => { filters.language = v; });
+  csStatus   = makeFilterSelect('cs-status-wrap',   (v) => { filters.status   = v; });
+  csCategory = makeFilterSelect('cs-category-wrap', (v) => { filters.category = v; });
+
+  // 初始填充空选项（等 populateFilterOptions 后会被替换）
+  [
+    [csAuthor,   '全部作者'],
+    [csFormat,   '全部格式'],
+    [csLanguage, '全部语言'],
+    [csStatus,   '全部状态'],
+    [csCategory, '全部分类'],
+  ].forEach(([cs, label]) => cs.setOptions([{ value: '', label }]));
+
   $('#book-search').addEventListener('input', (event) => {
     filters.query = event.target.value;
-    renderBookList();
-  });
-  $('#book-author-filter').addEventListener('change', (event) => {
-    filters.author = event.target.value;
-    renderBookList();
-  });
-  $('#book-format-filter').addEventListener('change', (event) => {
-    filters.format = event.target.value;
-    renderBookList();
-  });
-  $('#book-language-filter').addEventListener('change', (event) => {
-    filters.language = event.target.value;
-    renderBookList();
-  });
-  $('#book-status-filter').addEventListener('change', (event) => {
-    filters.status = event.target.value;
-    renderBookList();
-  });
-  $('#book-category-filter').addEventListener('change', (event) => {
-    filters.category = event.target.value;
     renderBookList();
   });
   $('#library-filter-toggle').addEventListener('click', () => {
@@ -482,11 +498,11 @@ function bindControls() {
     filters.status = '';
     filters.category = '';
     $('#book-search').value = '';
-    $('#book-author-filter').value = '';
-    $('#book-format-filter').value = '';
-    $('#book-language-filter').value = '';
-    $('#book-status-filter').value = '';
-    $('#book-category-filter').value = '';
+    csAuthor.setValue('',   true);
+    csFormat.setValue('',   true);
+    csLanguage.setValue('', true);
+    csStatus.setValue('',   true);
+    csCategory.setValue('', true);
     renderBookList();
   });
   $('#library-view-toggle').addEventListener('click', () => {

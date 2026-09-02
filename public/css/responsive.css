@@ -59,8 +59,8 @@
     width: 72px;
   }
 
-  .pdf-zoom-control select {
-    max-width: 68px;
+  .pdf-zoom-control .cs-wrap {
+    min-width: 68px;
   }
 
   .pdf-sidebar {

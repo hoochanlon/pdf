@@ -184,8 +184,7 @@
 }
 
 .pdf-page-jump input,
-.pdf-zoom-control select,
-.pdf-search-control input {
+.pdf-zoom-control .cs-trigger {
   height: var(--pdf-control-height);
   color: #fff;
   background: rgba(16, 14, 79, 0.4);
@@ -206,9 +205,8 @@
   appearance: none;
 }
 
-.pdf-zoom-control select {
-  max-width: 92px;
-  padding: 0 5px;
+.pdf-zoom-control .cs-wrap {
+  min-width: 92px;
 }
 
 .pdf-search-control {

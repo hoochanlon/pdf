@@ -2,6 +2,7 @@
 import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened } from './reading.js';
+import { CustomSelect } from './select.js';
 
 const PDF_VERSION = '3.11.174';
 const PDF_CORE_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_VERSION}/pdf.min.js`;
@@ -11,6 +12,7 @@ const PDF_WORKER_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_VERS
 
 let controlsBound = false;
 let pdfLibrariesPromise = null;
+let zoomSelect = null; // CustomSelect 实例
 
 function loadScript(url, globalName) {
   if (window[globalName]) return Promise.resolve();
@@ -411,9 +413,26 @@ function bindPDFControls() {
   }, { passive: false });
   
   $('#pdf-rotate-clockwise').addEventListener('click', () => rotatePDF(90));
-  $('#pdf-zoom-select').addEventListener('change', (event) => {
-    if (state.pdfViewer) state.pdfViewer.currentScaleValue = event.target.value;
-  });
+
+  // 初始化缩放自定义下拉
+  const zoomWrap = $('#cs-zoom-wrap');
+  zoomSelect = new CustomSelect(
+    zoomWrap.querySelector('.cs-trigger'),
+    zoomWrap.querySelector('.cs-listbox'),
+    {
+      theme: 'toolbar',
+      onChange: (value) => {
+        if (state.pdfViewer) state.pdfViewer.currentScaleValue = value;
+      }
+    }
+  );
+  zoomSelect.setOptions([
+    { value: 'auto',         label: '自动' },
+    { value: 'page-width',   label: '适合宽度' },
+    { value: 'page-fit',     label: '适合页面' },
+    { value: 'page-actual',  label: '实际大小' }
+  ]);
+  zoomSelect.setValue('page-width', true);
 }
 
 function showPDFError(message) {
@@ -504,7 +523,7 @@ export async function renderPDF(url, filename, requestId, restoreLocation = null
       if (!isCurrentViewer()) return;
       markBookOpened(filename);
       pdfViewer.currentScaleValue = 'page-width';
-      $('#pdf-zoom-select').value = 'page-width';
+      if (zoomSelect) zoomSelect.setValue('page-width', true);
       const page = restorePage;
       const canRestore = state.pdfRestorePending;
       bindPDFProgress(requestId);

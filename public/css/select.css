@@ -1,0 +1,211 @@
+/* ============================================================
+   CustomSelect — 自定义下拉组件
+   .cs-wrap > .cs-trigger + .cs-listbox > .cs-option*
+   ============================================================ */
+
+.cs-wrap {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+}
+
+/* ── 触发按钮 ─────────────────────────────────────────────── */
+.cs-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 10px;
+  min-width: 0;
+  width: 100%;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.cs-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* 下箭头 */
+.cs-arrow {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  transition: transform 200ms ease;
+}
+
+.cs-arrow::after {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.cs-trigger[aria-expanded="true"] .cs-arrow {
+  transform: rotate(180deg);
+}
+
+/* ── 书架筛选器样式（浅色） ───────────────────────────────── */
+.cs-wrap--filter .cs-trigger {
+  color: var(--text-primary);
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
+}
+
+.cs-wrap--filter .cs-trigger:hover,
+.cs-wrap--filter .cs-trigger:focus-visible,
+.cs-wrap--filter .cs-trigger[aria-expanded="true"] {
+  border-color: #8b87ff;
+  box-shadow: 0 0 0 3px rgba(88, 80, 236, 0.12);
+  outline: none;
+}
+
+/* ── PDF 工具栏样式（深色） ───────────────────────────────── */
+.cs-wrap--toolbar .cs-trigger {
+  color: #fff;
+  background: rgba(16, 14, 79, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  height: var(--pdf-control-height, 34px);
+  padding: 0 10px;
+  font-size: 12px;
+  min-width: 120px;
+}
+
+.cs-wrap--toolbar .cs-trigger:hover,
+.cs-wrap--toolbar .cs-trigger:focus-visible,
+.cs-wrap--toolbar .cs-trigger[aria-expanded="true"] {
+  background: rgba(16, 14, 79, 0.58);
+  border-color: rgba(255, 255, 255, 0.5);
+  outline: none;
+}
+
+.cs-wrap--toolbar .cs-arrow::after {
+  border-color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── 下拉列表 ─────────────────────────────────────────────── */
+.cs-listbox {
+  position: fixed;
+  z-index: 9999;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.08);
+  opacity: 0;
+  transform: scaleY(0.92) translateY(-4px);
+  transform-origin: top center;
+  transition: opacity 140ms ease, transform 140ms ease;
+  overflow-y: auto;
+  max-height: 280px;
+  overscroll-behavior: contain;
+}
+
+.cs-listbox.opens-up {
+  transform-origin: bottom center;
+  transform: scaleY(0.92) translateY(4px);
+}
+
+.cs-listbox.is-open {
+  opacity: 1;
+  transform: scaleY(1) translateY(0);
+}
+
+/* ── 工具栏下拉列表（深色）─ listbox 被移到 body，用 data 属性区分主题 ── */
+.cs-listbox[data-cs-theme="toolbar"] {
+  background: #1e1b4b;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  justify-content: center;
+  padding: 8px 12px;
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option::before,
+.cs-listbox[data-cs-theme="toolbar"] .cs-option:not(.is-selected)::before {
+  position: absolute;
+  left: 10px;
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option {
+  position: relative;
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option:hover,
+.cs-listbox[data-cs-theme="toolbar"] .cs-option:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option.is-selected {
+  color: #a5b4fc;
+}
+
+.cs-listbox[data-cs-theme="toolbar"] .cs-option.is-selected::before {
+  color: #a5b4fc;
+}
+.cs-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.cs-option:hover,
+.cs-option:focus-visible {
+  background: var(--item-hover, #eceeff);
+  color: var(--primary-dark, #4338ca);
+  outline: none;
+}
+
+.cs-option.is-selected {
+  color: var(--primary, #5850ec);
+  font-weight: 600;
+}
+
+/* 选中勾 */
+.cs-option.is-selected::before {
+  content: '✓';
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary, #5850ec);
+  flex-shrink: 0;
+}
+
+.cs-option:not(.is-selected)::before {
+  content: '';
+  display: inline-block;
+  width: 11px;
+  flex-shrink: 0;
+}
