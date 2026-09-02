@@ -121,7 +121,9 @@
     inset: 52px 0 3px;
   }
 
-  .reader-btn {
+  .reader-btn,
+  .reader-format-icon,
+  .reader-source-icon {
     width: 32px;
     height: 32px;
     flex-basis: 32px;

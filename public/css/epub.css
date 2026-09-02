@@ -68,30 +68,41 @@
   display: none; /* 文字格式标签已用图标替代，保留选择器避免其他引用报错 */
 }
 
-/* 格式图标（左侧，紧跟目录按钮） */
+/* 格式图标（左侧，紧跟目录按钮）— 与 reader-btn 统一容器尺寸与视觉风格 */
 .reader-format-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  opacity: 0.85;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  background: rgba(16, 14, 79, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
 }
 
 .reader-format-icon img {
   display: block;
+  width: 18px;
+  height: 18px;
 }
 
-/* 来源图标（右侧工具组内，在进度百分比旁） */
+/* 来源图标（右侧工具组内，在进度百分比旁）— 与 reader-btn 统一容器尺寸与视觉风格 */
 .reader-source-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  opacity: 0.75;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  background: rgba(16, 14, 79, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
   transition: opacity 160ms ease;
+}
+
+.reader-source-icon svg {
+  display: block;
 }
 
 .reader-source-icon[hidden] {
