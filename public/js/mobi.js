@@ -562,6 +562,13 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     }
     
     $('#mobi-title').textContent = title;
+
+    // 设置下载链接
+    const dlLink = $('#mobi-download');
+    if (dlLink) {
+      dlLink.href = url;
+      dlLink.download = filename.split('/').pop();
+    }
     
     console.log('[MOBI] 步骤 7: 隐藏加载状态');
     hideMobiStatus();
@@ -599,4 +606,6 @@ export function resetMobiState() {
   hideMobiStatus();
   setMobiProgress(0);
   state.mobiView = null;
+  const dlLink = $('#mobi-download');
+  if (dlLink) { dlLink.removeAttribute('href'); dlLink.removeAttribute('download'); }
 }

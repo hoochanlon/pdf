@@ -138,6 +138,23 @@
   transform: scale(0.92);
 }
 
+/* 下载按钮：a 标签样式与 reader-btn 对齐 */
+.reader-download-btn {
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.reader-download-btn img {
+  filter: brightness(0) invert(1);
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.reader-download-btn:hover img {
+  opacity: 0.8;
+}
+
 .epub-mode-control select, .epub-page-jump input {
   height: 30px;
   color: #fff;

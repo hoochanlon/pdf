@@ -456,6 +456,13 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     const title = book.package?.metadata?.title || book.metadata?.title || filename;
     $('#epub-title').textContent = title;
 
+    // 设置下载链接
+    const dlLink = $('#epub-download');
+    if (dlLink) {
+      dlLink.href = url;
+      dlLink.download = filename.split('/').pop();
+    }
+
     await waitForStage(rendition.display(resumeLocation || undefined), '渲染 EPUB 内容');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     markBookOpened(filename);
@@ -645,6 +652,8 @@ export function resetEPUBState() {
   toggleTOC(false);
   $('#epub-status').classList.remove('is-error');
   $('#epub-status').classList.add('is-hidden');
+  const dlLink = $('#epub-download');
+  if (dlLink) { dlLink.removeAttribute('href'); dlLink.removeAttribute('download'); }
 }
 
 export function toggleTOC(force) {

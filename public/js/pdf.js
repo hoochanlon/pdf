@@ -107,6 +107,23 @@ function updatePDFReadingUI(currentPage, totalPages, progress) {
   $('#pdf-title').textContent = title;
 }
 
+function updatePDFDownloadLink(url, filename) {
+  const link = $('#pdf-download');
+  if (!link) return;
+  if (url && filename) {
+    link.href = url;
+    link.download = filename.split('/').pop();
+    link.removeAttribute('aria-disabled');
+    link.style.pointerEvents = '';
+    link.style.opacity = '';
+  } else {
+    link.removeAttribute('href');
+    link.setAttribute('aria-disabled', 'true');
+    link.style.pointerEvents = 'none';
+    link.style.opacity = '0.4';
+  }
+}
+
 function updatePDFRotationUI() {
   const rotation = state.pdfViewer?.pagesRotation || 0;
   const label = `${rotation}°`;
@@ -422,6 +439,7 @@ export async function renderPDF(url, filename, requestId, restoreLocation = null
   state.pdfTotalPages = 0;
   state.pdfRotation = 0;
   state.pdfRestorePending = false;
+  updatePDFDownloadLink(url, filename);
   $('#pdf-outline').replaceChildren();
   destroyPDFThumbnails();
   $('#pdf-tab-outline').setAttribute('aria-selected', 'true');
@@ -573,6 +591,7 @@ export function destroyPDF() {
   state.pdfRestorePending = false;
   updatePDFReadingUI(0, 0, 0);
   updatePDFRotationUI();
+  updatePDFDownloadLink(null, null);
   $('#pdf-sidebar').classList.remove('show');
   $('#pdf-sidebar').setAttribute('aria-hidden', 'true');
   $('#pdf-sidebar-toggle').setAttribute('aria-expanded', 'false');
