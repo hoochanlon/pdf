@@ -552,12 +552,77 @@ async function loadEPUBTOC(book, requestId, renderToken) {
   else if (current) updateEPUBLocation(current);
 }
 
+// ── EPUB locations 缓存 ───────────────────────────────────────
+// 用文件名（URL 末段）作为缓存 key，存 locations 数组字符串
+// 避免每次打开都重新 generate，大幅提升恢复速度
+
+const LOCATIONS_CACHE_PREFIX = 'epub-locations:';
+const LOCATIONS_CACHE_MAX    = 30; // 最多缓存 30 本书，超出自动淘汰最旧的
+
+function getLocationsCacheKey(filename) {
+  // 取文件名最后一段，去除路径和 query
+  return LOCATIONS_CACHE_PREFIX + filename.split('/').pop().split('?')[0];
+}
+
+function loadLocationsCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { locations, spine } = JSON.parse(raw);
+    if (!Array.isArray(locations) || !locations.length) return null;
+    return { locations, spine };
+  } catch {
+    return null;
+  }
+}
+
+function saveLocationsCache(key, locations, spine) {
+  try {
+    // 淘汰超出上限的旧缓存
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(LOCATIONS_CACHE_PREFIX)) keys.push(k);
+    }
+    if (keys.length >= LOCATIONS_CACHE_MAX) {
+      keys.sort(); // 字典序近似时间序，淘汰前几条
+      for (let i = 0; i <= keys.length - LOCATIONS_CACHE_MAX; i++) {
+        localStorage.removeItem(keys[i]);
+      }
+    }
+    // spine 用于校验文件是否变化（存章节数量）
+    localStorage.setItem(key, JSON.stringify({ locations, spine }));
+  } catch (err) {
+    // localStorage 满了：静默忽略
+    console.warn('[EPUB locations cache] 保存失败:', err);
+  }
+}
+
 async function generateEPUBLocations(book, requestId, renderToken) {
+  const cacheKey = getLocationsCacheKey(state.epubUrl || state.activeFile || '');
+  // 当前书的 spine 章节数，用于校验缓存是否匹配
+  const spineCount = book.spine?.spineItems?.length ?? 0;
+
   const run = async () => {
     try {
-      const locations = await waitForStage(book.locations.generate(1200), '生成 EPUB 页码', 30000);
+      // ── 尝试读缓存 ──
+      const cached = loadLocationsCache(cacheKey);
+      if (cached && cached.spine === spineCount && cached.locations.length > 1) {
+        // 命中缓存：直接加载，跳过耗时 generate
+        book.locations.load(cached.locations);
+      } else {
+        // 未命中：生成并保存
+        const locations = await waitForStage(
+          book.locations.generate(1200), '生成 EPUB 页码', 30000
+        );
+        if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
+        if (locations?.length > 1) {
+          saveLocationsCache(cacheKey, locations, spineCount);
+        }
+      }
+
       if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
-      state.epubLocationsReady = locations.length > 1;
+      state.epubLocationsReady = book.locations.length() > 1;
       state.epubTotalPages = Math.max(0, book.locations.length() - 1);
       const current = state.rendition?.currentLocation?.();
       if (current?.then) updateEPUBLocation(await current);

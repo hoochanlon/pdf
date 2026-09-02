@@ -242,6 +242,24 @@ document.addEventListener('click', (event) => {
   }
 });
 
+// 阅读进度被清除时，若当前正在阅读该书则立即跳回起始位置
+window.addEventListener('bookreadingchange', ({ detail }) => {
+  const file = detail?.file;
+  if (!file || !detail?.cleared || file !== state.activeFile) return;
+  if (state.renderMode === 'pdf' && state.pdfViewer) {
+    state.pdfViewer.scrollPageIntoView({ pageNumber: 1 });
+  } else if (state.renderMode === 'epub' && state.rendition) {
+    const firstChapter = state.epubChapters?.[0];
+    if (firstChapter) {
+      void state.rendition.display(firstChapter.href).catch(() => {});
+    } else {
+      void state.rendition.display(0).catch(() => {});
+    }
+  } else if (state.renderMode === 'mobi' && state.mobiView) {
+    state.mobiView.goToFraction?.(0);
+  }
+});
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM加载完成，开始初始化...');

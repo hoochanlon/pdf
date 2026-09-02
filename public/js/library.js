@@ -1,7 +1,7 @@
 // 书架目录、搜索与筛选
 import { state } from './state.js';
 import { $, bookListUrl, isEpub, isMobi } from './utils.js';
-import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
+import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearOnlineReadingStatus } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
 import { CustomSelect } from './select.js';
 
@@ -365,9 +365,21 @@ function renderBookList() {
       footer.appendChild(footerInfo);
       footer.appendChild(progressWrap);
       
+      // 网格视图：阅读状态清除按钮（悬停显示，右上角）
+      const gridClearBtn = document.createElement('button');
+      gridClearBtn.className = 'local-delete-btn book-clear-status-btn';
+      gridClearBtn.type = 'button';
+      gridClearBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+      gridClearBtn.textContent = '↺';
+      gridClearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearBookReadingStatus(book.file);
+      });
+
       item.appendChild(formatBadge);
       item.appendChild(cover);
       item.appendChild(footer);
+      item.appendChild(gridClearBtn);
       
     } else {
       // 列表视图：横向信息条样式，左侧显示封面缩略图
@@ -441,6 +453,18 @@ function renderBookList() {
       item.appendChild(coverThumb);
       item.appendChild(infoSpan);
       item.appendChild(arrowSpan);
+
+      // 阅读状态清除按钮（悬停显示，右上角）
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'local-delete-btn book-clear-status-btn';
+      clearBtn.type = 'button';
+      clearBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+      clearBtn.textContent = '↺';
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearBookReadingStatus(book.file);
+      });
+      item.appendChild(clearBtn);
     }
 
     item.addEventListener('click', () => openBookHandler(book.file, item));
@@ -522,6 +546,14 @@ function bindControls() {
     updateViewUI();
     renderBookList();
   });
+  $('#library-clear-progress')?.addEventListener('click', () => {
+    // 统计有阅读记录的网络书数量（不含 __local__ 前缀）
+    const count = books.filter(b => getBookReadingStatus(b.file) !== 'unread' || getBookReadingProgress(b.file) > 0).length;
+    if (!count) return;
+    if (!confirm(`确认清除全部 ${count} 本书的阅读进度？`)) return;
+    clearOnlineReadingStatus();
+    renderBookList();
+  });
   window.addEventListener('bookreadingchange', ({ detail }) => {
     // 1. 刷新筛选器中阅读状态的计数（状态变了计数就变了）
     populateFilterOptions();
@@ -546,14 +578,22 @@ function updateBookProgress(file) {
     progressBar.style.width = `${progress * 100}%`;
   }
   const progressText = item.querySelector('.book-progress-text');
-  if (progressText && progressInfo) {
-    progressText.textContent = progressInfo;
+  if (progressText) {
+    if (progressInfo) {
+      progressText.textContent = progressInfo;
+    } else {
+      progressText.remove();
+    }
   }
 
   // 列表视图：更新进度文字
   const progressInfoEl = item.querySelector('.book-progress-info');
   if (progressInfoEl) {
-    progressInfoEl.textContent = progressInfo;
+    if (progressInfo) {
+      progressInfoEl.textContent = progressInfo;
+    } else {
+      progressInfoEl.remove();
+    }
   } else if (progressInfo) {
     // 首次有进度时动态插入到作者行
     const authorRow = item.querySelector('.book-author-row');
@@ -563,7 +603,8 @@ function updateBookProgress(file) {
       progressEl.textContent = progressInfo;
       authorRow.appendChild(progressEl);
     }
-  }}
+  }
+}
 
 function updateBookCount(count) {
   const bookCountEl = $('#book-count');

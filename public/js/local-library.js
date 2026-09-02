@@ -4,7 +4,7 @@
 // • 支持单本删除、一键清空（不删除实际文件）
 
 import { $, isEpub, isMobi } from './utils.js';
-import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
+import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearAllReadingStatus } from './reading.js';
 import { CustomSelect } from './select.js';
 import { getLocalCover, revokeLocalCover, revokeAllLocalCovers } from './local-covers.js';
 
@@ -259,6 +259,17 @@ function buildLocalBookItem(book) {
     removeLocalEntry(book.name);
   });
 
+  // 清除阅读进度按钮（删除按钮左侧，悬停显示）
+  const clearStatusBtn = document.createElement('button');
+  clearStatusBtn.className = 'local-delete-btn local-clear-status-btn';
+  clearStatusBtn.type = 'button';
+  clearStatusBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+  clearStatusBtn.innerHTML = '↺';
+  clearStatusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearBookReadingStatus(book.key);
+  });
+
   if (localCurrentView === 'grid') {
     const formatBadge = document.createElement('span');
     formatBadge.className = 'book-format-badge';
@@ -299,7 +310,7 @@ function buildLocalBookItem(book) {
     progressWrap.appendChild(progressBar);
     footer.append(footerInfo, progressWrap);
 
-    item.append(formatBadge, cover, footer, deleteBtn);
+    item.append(formatBadge, cover, footer, clearStatusBtn, deleteBtn);
 
   } else {
     const thumb = document.createElement('div');
@@ -346,7 +357,7 @@ function buildLocalBookItem(book) {
     arrow.className = 'book-arrow';
     arrow.textContent = '›';
 
-    item.append(thumb, info, arrow, deleteBtn);
+    item.append(thumb, info, arrow, clearStatusBtn, deleteBtn);
   }
 
   const rawEntry = rawEntries.find(e => e.name === book.name);
@@ -426,6 +437,10 @@ function renderLocalList() {
   const clearBtn = $('#local-clear-all');
   if (clearBtn) clearBtn.hidden = localBooks.length === 0;
 
+  // 清除进度按钮：有书才显示
+  const clearProgressBtn = $('#local-clear-progress');
+  if (clearProgressBtn) clearProgressBtn.hidden = localBooks.length === 0;
+
   list.classList.add('is-loading');
   list.replaceChildren();
 
@@ -482,12 +497,23 @@ function updateLocalBookProgress(key) {
 
   const progressBar = item.querySelector('.book-progress-bar');
   if (progressBar) progressBar.style.width = `${getBookReadingProgress(key) * 100}%`;
+
   const progressText = item.querySelector('.book-progress-text');
-  if (progressText && progressInfo) progressText.textContent = progressInfo;
+  if (progressText) {
+    if (progressInfo) {
+      progressText.textContent = progressInfo;
+    } else {
+      progressText.remove();
+    }
+  }
 
   const progressInfoEl = item.querySelector('.book-progress-info');
   if (progressInfoEl) {
-    progressInfoEl.textContent = progressInfo;
+    if (progressInfo) {
+      progressInfoEl.textContent = progressInfo;
+    } else {
+      progressInfoEl.remove();
+    }
   } else if (progressInfo) {
     const authorRow = item.querySelector('.book-author-row');
     if (authorRow) {
@@ -737,6 +763,15 @@ function bindLocalControls() {
     if (!localBooks.length) return;
     if (!confirm(`确认从本地书库中移除全部 ${localBooks.length} 本书？\n（不会删除实际文件）`)) return;
     await clearAllLocalEntries();
+  });
+
+  // 清除阅读进度
+  $('#local-clear-progress')?.addEventListener('click', () => {
+    const count = localBooks.filter(b => getBookReadingStatus(b.key) !== 'unread' || getBookReadingProgress(b.key) > 0).length;
+    if (!count) return;
+    if (!confirm(`确认清除全部 ${count} 本本地书籍的阅读进度？`)) return;
+    clearAllReadingStatus('__local__/');
+    renderLocalList();
   });
 
   // 进度变化 → 局部更新

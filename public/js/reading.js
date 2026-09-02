@@ -57,8 +57,8 @@ function saveRecords() {
   }
 }
 
-function notifyChange(file) {
-  window.dispatchEvent(new CustomEvent('bookreadingchange', { detail: { file } }));
+function notifyChange(file, extra = {}) {
+  window.dispatchEvent(new CustomEvent('bookreadingchange', { detail: { file, ...extra } }));
 }
 
 export function getBookReadingStatus(file) {
@@ -120,5 +120,28 @@ export function clearBookReadingStatus(file) {
   if (!file || !records[file]) return;
   delete records[file];
   saveRecords();
-  notifyChange(file);
+  notifyChange(file, { cleared: true });
+}
+
+export function clearAllReadingStatus(prefix = '') {
+  // prefix 为空时清除全部；传 '__local__/' 只清本地书库
+  const keys = Object.keys(records).filter(k => prefix ? k.startsWith(prefix) : true);
+  if (!keys.length) return;
+  keys.forEach(k => delete records[k]);
+  saveRecords();
+  keys.forEach(k => notifyChange(k, { cleared: true }));
+}
+
+export function clearOnlineReadingStatus() {
+  // 只清除网络书库的记录（不含 __local__/ 前缀）
+  const keys = Object.keys(records).filter(k => !k.startsWith('__local__/'));
+  if (!keys.length) return;
+  keys.forEach(k => delete records[k]);
+  saveRecords();
+  keys.forEach(k => notifyChange(k, { cleared: true }));
+}
+
+export function hasAnyReadingStatus(prefix = '') {
+  // 判断是否有任何阅读记录；prefix 为空时判断全部，传前缀只判断匹配的
+  return Object.keys(records).some(k => prefix ? k.startsWith(prefix) : !k.startsWith('__local__/'));
 }

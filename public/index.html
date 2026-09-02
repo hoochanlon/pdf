@@ -96,6 +96,7 @@
               <span>排列</span>
             </button>
             <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
+            <button class="library-clear-progress" id="library-clear-progress" type="button" title="清除所有书籍的阅读进度">清除进度</button>
           </div>
           <div class="library-filter-panel" id="library-filter-panel" hidden>
             <div class="library-filters">
@@ -224,7 +225,10 @@
             选择文件
           </button>
           <button class="local-btn local-btn--danger" id="local-clear-all" type="button" hidden>
-            清空
+            清空书库
+          </button>
+          <button class="local-btn local-btn--warning" id="local-clear-progress" type="button" hidden>
+            清除进度
           </button>
         </div>
         <p class="local-dir-name" id="local-dir-name" hidden></p>
