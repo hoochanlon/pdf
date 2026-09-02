@@ -24,5 +24,4 @@ ebook-meta "书籍.mobi" --get-cover="封面.jpg"
 
 ## 下一步计划
 
-* [ ] 支持本地 PDF、epub、mobi 阅读 （方便本地阅读）
 * [ ] 多国语言计划...
