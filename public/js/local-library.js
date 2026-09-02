@@ -6,6 +6,7 @@
 import { $, isEpub, isMobi } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation } from './reading.js';
 import { CustomSelect } from './select.js';
+import { getLocalCover, revokeLocalCover, revokeAllLocalCovers } from './local-covers.js';
 
 const SUPPORTED_EXTENSIONS = /\.(pdf|epub|mobi|azw3?)$/i;
 const IDB_NAME    = 'local-library';
@@ -265,6 +266,10 @@ function buildLocalBookItem(book) {
 
     const cover = document.createElement('div');
     cover.className = 'book-cover no-cover';
+    const coverImg = document.createElement('img');
+    coverImg.className = 'book-cover-image';
+    coverImg.alt = book.title;
+    cover.appendChild(coverImg);
     const coverTitle = document.createElement('div');
     coverTitle.className = 'book-cover-title';
     coverTitle.textContent = book.title;
@@ -299,6 +304,10 @@ function buildLocalBookItem(book) {
   } else {
     const thumb = document.createElement('div');
     thumb.className = 'book-cover-thumb';
+    const thumbImg = document.createElement('img');
+    thumbImg.className = 'book-cover-thumb-image';
+    thumbImg.alt = book.title;
+    thumb.appendChild(thumbImg);
     const badge = document.createElement('span');
     badge.className = 'book-cover-thumb-badge';
     badge.textContent = book.format;
@@ -352,6 +361,51 @@ function buildLocalBookItem(book) {
   return item;
 }
 
+// ── 封面懒加载 ────────────────────────────────────────────────
+
+async function loadCoversForVisible(visibleBooks) {
+  for (const book of visibleBooks) {
+    const entry = rawEntries.find(e => e.name === book.name);
+    if (!entry) continue;
+
+    // 需要有 File 对象才能提取封面；Handle 条目打开过才有 file
+    // 未打开的 Handle 条目：尝试静默获取（不弹权限框）
+    let file = entry.file;
+    if (!file && entry.handle) {
+      try {
+        const perm = await entry.handle.queryPermission({ mode: 'read' });
+        if (perm === 'granted') file = await entry.handle.getFile();
+      } catch { /* 没权限就跳过封面 */ }
+    }
+    if (!file) continue;
+
+    // 异步提取，不 await 全部完成，每张就绪就立刻更新
+    getLocalCover(book.key, file).then(url => {
+      if (!url) return;
+      // 更新列表视图缩略图
+      const thumbImg = document.querySelector(
+        `.local-book-item[data-local-file="${CSS.escape(book.name)}"] .book-cover-thumb-image`
+      );
+      if (thumbImg) {
+        thumbImg.onload = () => thumbImg.classList.add('loaded');
+        thumbImg.src = url;
+        if (thumbImg.complete && thumbImg.naturalWidth > 0) thumbImg.classList.add('loaded');
+        thumbImg.closest('.book-cover-thumb')?.classList.remove('no-cover');
+      }
+      // 更新网格视图封面
+      const coverImg = document.querySelector(
+        `.local-book-item[data-local-file="${CSS.escape(book.name)}"] .book-cover-image`
+      );
+      if (coverImg) {
+        coverImg.onload = () => coverImg.classList.add('loaded');
+        coverImg.src = url;
+        if (coverImg.complete && coverImg.naturalWidth > 0) coverImg.classList.add('loaded');
+        coverImg.closest('.book-cover')?.classList.remove('no-cover');
+      }
+    }).catch(() => {});
+  }
+}
+
 // ── 渲染 ──────────────────────────────────────────────────────
 
 function renderLocalList() {
@@ -388,7 +442,11 @@ function renderLocalList() {
   if (emptyEl) emptyEl.hidden = true;
 
   visible.forEach(book => list.appendChild(buildLocalBookItem(book)));
-  requestAnimationFrame(() => list.classList.remove('is-loading'));
+  requestAnimationFrame(() => {
+    list.classList.remove('is-loading');
+    // DOM 就绪后异步提取封面，不阻塞列表渲染
+    loadCoversForVisible(visible);
+  });
 }
 
 // ── 删除 / 清空 ───────────────────────────────────────────────
@@ -396,6 +454,7 @@ function renderLocalList() {
 async function removeLocalEntry(name) {
   const entry = rawEntries.find(e => e.name === name);
   if (entry?.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+  revokeLocalCover(localKey(name));
   rawEntries = rawEntries.filter(e => e.name !== name);
   localBooks = rawEntries.map(normalizeLocalBook);
   await idbDelete(name).catch(() => {});
