@@ -2,21 +2,22 @@
 import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
+import { t } from './i18n.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
   while (!predicate()) {
     if (Date.now() - startedAt >= timeout) {
-      throw new Error(`${name} 加载超时`);
+      throw new Error(t('reader.timeoutError', null, { label: name }));
     }
     await new Promise((resolve) => window.setTimeout(resolve, 50));
   }
 }
 
-async function waitForStage(promise, stage, timeout = 15000) {
+async function waitForStage(promise, stageKey, timeout = 15000) {
   let timer;
   const timeoutPromise = new Promise((_, reject) => {
-    timer = window.setTimeout(() => reject(new Error(`${stage}超时`)), timeout);
+    timer = window.setTimeout(() => reject(new Error(t('reader.timeoutError', null, { label: t(stageKey) }))), timeout);
   });
   return Promise.race([Promise.resolve(promise), timeoutPromise]).finally(() => window.clearTimeout(timer));
 }
@@ -415,7 +416,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   const savedProgress = getBookReadingProgress(filename);
   setEPUBProgress(savedProgress);
   
-  setEPUBStatus('loading', '正在加载 EPUB', '正在准备阅读内容…');
+  setEPUBStatus('loading', t('reader.loadingEpub'), t('reader.preparingContent'));
   container.replaceChildren();
 
   try {
@@ -427,7 +428,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     // 避免 epubjs 用 fetch 处理 blob URL 时的超时问题。
     let epubSource = url;
     if (fileObject instanceof File || fileObject instanceof Blob) {
-      setEPUBStatus('loading', '正在加载 EPUB', '正在读取文件内容…');
+      setEPUBStatus('loading', t('reader.loadingEpub'), t('reader.readingFileContent'));
       epubSource = await fileObject.arrayBuffer();
       if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     }
@@ -457,10 +458,10 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     rendition.on('displayError', (error) => {
       if (!isCurrentRendition()) return;
       console.error('EPUB 页面渲染失败:', error);
-      setEPUBStatus('error', 'EPUB 页面渲染失败', error?.message || '章节内容无法显示');
+      setEPUBStatus('error', t('reader.epubRenderFailedTitle'), error?.message || t('reader.chapterUnavailable'));
     });
 
-    await waitForStage(book.ready, '读取 EPUB 文件');
+    await waitForStage(book.ready, 'reader.stageReadEpub');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     const title = book.package?.metadata?.title || book.metadata?.title || filename;
     $('#epub-title').textContent = title;
@@ -472,7 +473,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
       dlLink.download = filename.split('/').pop().replace(/^__local__\//, '');
     }
 
-    await waitForStage(rendition.display(resumeLocation || undefined), '渲染 EPUB 内容');
+    await waitForStage(rendition.display(resumeLocation || undefined), 'reader.stageRenderEpub');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     markBookOpened(filename);
     setEPUBStatus('ready');
@@ -485,7 +486,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   } catch (error) {
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
     console.error('EPUB 渲染失败:', error);
-    setEPUBStatus('error', 'EPUB 加载失败', error.message || '文件无法解析');
+    setEPUBStatus('error', t('reader.epubLoadFailedTitle'), error.message || t('reader.fileParseFailed'));
   }
 }
 
@@ -499,7 +500,7 @@ function getEPUBSpineIndex(book, href, fallback) {
 async function loadEPUBTOC(book, requestId, renderToken) {
   const list = $('#epub-toc-list');
   list.replaceChildren();
-  const navigation = await waitForStage(book.loaded.navigation, '读取 EPUB 目录', 10000);
+  const navigation = await waitForStage(book.loaded.navigation, 'reader.stageLoadToc', 10000);
   if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
   const items = navigation?.toc || [];
   const chapters = [];
@@ -513,7 +514,7 @@ async function loadEPUBTOC(book, requestId, renderToken) {
     state.epubChapters = [];
     const empty = document.createElement('li');
     empty.className = 'pdf-outline-empty';
-    empty.textContent = '此 EPUB 没有目录';
+    empty.textContent = t('reader.epubNoOutline');
     list.appendChild(empty);
     updateEPUBChapterControls();
     return;
@@ -521,7 +522,7 @@ async function loadEPUBTOC(book, requestId, renderToken) {
   const appendItems = (entries, parent, level = 0) => entries.forEach((entry) => {
     const chapter = {
       href: entry.href,
-      label: entry.label?.trim() || '未命名目录项',
+      label: entry.label?.trim() || t('reader.untitledChapter'),
       level,
       spineIndex: getEPUBSpineIndex(book, entry.href, chapters.length)
     };
@@ -613,7 +614,7 @@ async function generateEPUBLocations(book, requestId, renderToken) {
       } else {
         // 未命中：生成并保存
         const locations = await waitForStage(
-          book.locations.generate(1200), '生成 EPUB 页码', 30000
+          book.locations.generate(1200), 'reader.stageGenerateLocations', 30000
         );
         if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
         if (locations?.length > 1) {

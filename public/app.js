@@ -21,6 +21,7 @@ import { getBookReadingLocation } from './js/reading.js';
 import { initTooltips } from './js/tooltip.js';
 import { initConfig, config } from './js/config-init.js';
 import { initLocalLibrary, clearLocalActiveState } from './js/local-library.js';
+import { initI18n, setLanguage, getCurrentLanguage, supportedLanguages, updateDOMTranslations } from './js/i18n.js';
 
 console.log('app.js 所有模块导入完成');
 
@@ -311,11 +312,75 @@ window.addEventListener('bookreadingchange', ({ detail }) => {
 });
 
 // 初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('DOM加载完成，开始初始化...');
   initConfig();
   initTooltips();
   initSidebar();
+  
+  // 初始化 i18n
+  await initI18n();
+  
+  // 初始化语言切换器
+  initLanguageSelector();
+  
   loadBookList(openBook);
   void initLocalLibrary(openLocalBook);
 });
+
+// 语言切换器初始化
+function initLanguageSelector() {
+  const languageToggle = $('#language-toggle');
+  const languageDropdown = $('#language-dropdown');
+  const currentLanguageFlag = $('#current-language-flag');
+  const languageOptions = document.querySelectorAll('.language-option');
+  
+  if (!languageToggle || !languageDropdown) return;
+  
+  // 更新当前语言显示
+  function updateCurrentLanguageDisplay() {
+    const currentLang = getCurrentLanguage();
+    const langConfig = supportedLanguages.find(l => l.code === currentLang);
+    if (langConfig && currentLanguageFlag) {
+      currentLanguageFlag.src = langConfig.icon;
+    }
+    
+    // 更新选项的选中状态
+    languageOptions.forEach(option => {
+      const isSelected = option.getAttribute('data-lang') === currentLang;
+      option.setAttribute('aria-selected', isSelected);
+    });
+  }
+  
+  // 切换下拉菜单显示
+  languageToggle.addEventListener('click', () => {
+    const isExpanded = languageToggle.getAttribute('aria-expanded') === 'true';
+    languageToggle.setAttribute('aria-expanded', !isExpanded);
+    languageDropdown.hidden = isExpanded;
+  });
+  
+  // 点击外部关闭下拉菜单
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.language-selector')) {
+      languageToggle.setAttribute('aria-expanded', 'false');
+      languageDropdown.hidden = true;
+    }
+  });
+  
+  // 语言选项点击事件
+  languageOptions.forEach(option => {
+    option.addEventListener('click', async () => {
+      const lang = option.getAttribute('data-lang');
+      if (lang && lang !== getCurrentLanguage()) {
+        await setLanguage(lang);
+        updateCurrentLanguageDisplay();
+        updateDOMTranslations();
+      }
+      languageToggle.setAttribute('aria-expanded', 'false');
+      languageDropdown.hidden = true;
+    });
+  });
+  
+  // 初始化显示
+  updateCurrentLanguageDisplay();
+}

@@ -42,5 +42,14 @@ export const config = {
 
     // 默认 EPUB 阅读模式：'scroll' 或 'paginated'
     defaultEpubMode: 'paginated'
+  },
+
+  // i18n 国际化配置
+  i18n: {
+    // 默认语言：'zh-CN', 'ja-JP', 'en-US'
+    defaultLanguage: 'zh-CN',
+    
+    // 是否自动检测浏览器语言
+    autoDetectLanguage: true
   }
 };

@@ -7,6 +7,7 @@ import { $, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearAllReadingStatus } from './reading.js';
 import { CustomSelect } from './select.js';
 import { getLocalCover, revokeLocalCover, revokeAllLocalCovers } from './local-covers.js';
+import { t } from './i18n.js';
 
 const SUPPORTED_EXTENSIONS = /\.(pdf|epub|mobi|azw3?)$/i;
 const IDB_NAME    = 'local-library';
@@ -122,7 +123,7 @@ function formatReadingProgress(key) {
   const location = getBookReadingLocation(key);
   if (progress === 0 && !location) return '';
   const pct = Math.round(progress * 100);
-  if (location?.kind === 'pdf-page') return `第${location.value}页 (${pct}%)`;
+  if (location?.kind === 'pdf-page') return t('reader.pageProgress', null, { page: location.value, percent: pct });
   return pct > 0 ? `${pct}%` : '';
 }
 
@@ -193,13 +194,13 @@ function populateLocalFilterOptions() {
 
   const makeOpt = (value, label, count) => ({ value, label: `${label} (${count})` });
   const authorOpts = [
-    { value: '', label: '全部作者' },
+    { value: '', label: t('library.allAuthors') },
     ...[...authorCounts.keys()]
       .sort((a, b) => a.localeCompare(b, 'zh-CN'))
       .map(a => makeOpt(a, a, authorCounts.get(a)))
   ];
   const formatOpts = [
-    { value: '', label: '全部格式' },
+    { value: '', label: t('library.allFormats') },
     ...[...formatCounts.keys()]
       .sort()
       .map(f => makeOpt(f, f, formatCounts.get(f)))
@@ -225,7 +226,7 @@ function updateLocalFilterSummary() {
   count.textContent = active;
   count.hidden = active === 0;
   toggle.classList.toggle('is-active', active > 0);
-  toggle.setAttribute('aria-label', active ? `筛选，${active}项已启用` : '筛选');
+  toggle.setAttribute('aria-label', active ? t('library.filterActive', null, { count: active }) : t('library.filter'));
 }
 
 // ── 书目条目构建 ──────────────────────────────────────────────
@@ -248,7 +249,7 @@ function buildLocalBookItem(book) {
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'local-delete-btn';
   deleteBtn.type = 'button';
-  deleteBtn.setAttribute('aria-label', `从书库中移除 ${book.title}`);
+  deleteBtn.setAttribute('aria-label', t('library.removeBook', null, { title: book.title }));
   deleteBtn.innerHTML = '×';
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -259,7 +260,7 @@ function buildLocalBookItem(book) {
   const clearStatusBtn = document.createElement('button');
   clearStatusBtn.className = 'local-delete-btn local-clear-status-btn';
   clearStatusBtn.type = 'button';
-  clearStatusBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+  clearStatusBtn.setAttribute('aria-label', t('library.clearBookProgress', null, { title: book.title }));
   clearStatusBtn.innerHTML = '↺';
   clearStatusBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -344,11 +345,11 @@ function buildLocalBookItem(book) {
     formatRow.className = 'book-meta book-category';
 
     // 类型徽章（本地书默认图书）
-    const localType = book.type || '图书';
-    const isPaper = localType === '论文';
+    const isPaper = book.type === '论文';
+    const typeLabel = isPaper ? t('library.typePaper') : t('library.typeBook');
     const typeBadge = document.createElement('span');
     typeBadge.className = `type-badge ${isPaper ? 'type-paper' : 'type-book'}`;
-    typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${localType}</span>`;
+    typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${typeLabel}</span>`;
     formatRow.appendChild(typeBadge);
 
     const formatBadgeEl = document.createElement('span');
@@ -450,12 +451,12 @@ function renderLocalList() {
   list.replaceChildren();
 
   if (!localBooks.length) {
-    if (emptyEl) { emptyEl.hidden = false; emptyEl.innerHTML = '打开文件夹或选择文件后，<br>这里会显示你的本地电子书'; }
+    if (emptyEl) { emptyEl.hidden = false; emptyEl.innerHTML = t('library.localEmpty'); }
     requestAnimationFrame(() => list.classList.remove('is-loading'));
     return;
   }
   if (!visible.length) {
-    if (emptyEl) { emptyEl.hidden = false; emptyEl.innerHTML = '没有匹配的书籍，<br>试试调整筛选条件'; }
+    if (emptyEl) { emptyEl.hidden = false; emptyEl.innerHTML = t('library.localNoMatch'); }
     requestAnimationFrame(() => list.classList.remove('is-loading'));
     return;
   }
@@ -565,7 +566,7 @@ async function handleOpenLocalBook(entry) {
     }
   } catch (error) {
     console.error('[LocalLibrary] 打开本地文件失败:', error);
-    alert(`无法读取文件：${entry.name}\n${error.message}`);
+    alert(t('dialogs.fileReadError', null, { filename: entry.name, error: error.message }));
   }
 }
 
@@ -596,16 +597,19 @@ async function persistEntry(entry) {
 async function restoreFromIDB() {
   try {
     const records = await idbGetAll();
-    if (!records.length) return;
-    const restored = records.map(r => ({ name: r.name, handle: r.handle, blobUrl: null, file: null }));
-    restored.forEach(e => {
-      if (!rawEntries.some(r => r.name === e.name)) rawEntries.push(e);
-    });
-    localBooks = rawEntries.map(normalizeLocalBook);
-    populateLocalFilterOptions();
-    renderLocalList();
+    if (records.length) {
+      const restored = records.map(r => ({ name: r.name, handle: r.handle, blobUrl: null, file: null }));
+      restored.forEach(e => {
+        if (!rawEntries.some(r => r.name === e.name)) rawEntries.push(e);
+      });
+      localBooks = rawEntries.map(normalizeLocalBook);
+      populateLocalFilterOptions();
+    }
   } catch (err) {
     console.warn('[LocalLibrary] IndexedDB 恢复失败:', err);
+  } finally {
+    // 无论是否有已保存的本地书目，都要运行一次，保证空状态文案以正确的语言渲染
+    renderLocalList();
   }
 }
 
@@ -682,8 +686,8 @@ function bindLocalControls() {
   };
   csLocalAuthor = makeLocalSelect('local-cs-author-wrap', (v) => { localFilters.author = v; });
   csLocalFormat = makeLocalSelect('local-cs-format-wrap', (v) => { localFilters.format = v; });
-  csLocalAuthor?.setOptions([{ value: '', label: '全部作者' }]);
-  csLocalFormat?.setOptions([{ value: '', label: '全部格式' }]);
+  csLocalAuthor?.setOptions([{ value: '', label: t('library.allAuthors') }]);
+  csLocalFormat?.setOptions([{ value: '', label: t('library.allFormats') }]);
 
   $('#local-filter-toggle')?.addEventListener('click', () => {
     const toggle   = $('#local-filter-toggle');
@@ -715,7 +719,7 @@ function bindLocalControls() {
   // 打开文件夹
   $('#local-open-dir')?.addEventListener('click', async () => {
     if (!window.showDirectoryPicker) {
-      alert('你的浏览器不支持 File System Access API，请使用 Chrome 或 Edge 86+。');
+      alert(t('dialogs.browserUnsupported'));
       return;
     }
     try {
@@ -728,7 +732,7 @@ function bindLocalControls() {
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('[LocalLibrary] 打开文件夹失败:', error);
-        alert(`打开文件夹失败：${error.message}`);
+        alert(t('dialogs.folderOpenError', null, { error: error.message }));
       }
     }
   });
@@ -770,7 +774,7 @@ function bindLocalControls() {
   // 清空全部
   $('#local-clear-all')?.addEventListener('click', async () => {
     if (!localBooks.length) return;
-    if (!confirm(`确认从本地书库中移除全部 ${localBooks.length} 本书？\n（不会删除实际文件）`)) return;
+    if (!confirm(t('dialogs.clearLocalLibrary', null, { count: localBooks.length }))) return;
     await clearAllLocalEntries();
   });
 
@@ -778,7 +782,7 @@ function bindLocalControls() {
   $('#local-clear-progress')?.addEventListener('click', () => {
     const count = localBooks.filter(b => getBookReadingStatus(b.key) !== 'unread' || getBookReadingProgress(b.key) > 0).length;
     if (!count) return;
-    if (!confirm(`确认清除全部 ${count} 本本地书籍的阅读进度？`)) return;
+    if (!confirm(t('dialogs.clearLocalProgress', null, { count }))) return;
     clearAllReadingStatus('__local__/');
     renderLocalList();
   });
@@ -790,6 +794,12 @@ function bindLocalControls() {
       populateLocalFilterOptions();
       updateLocalBookProgress(key);
     }
+  });
+
+  // 切换语言后，重新生成筛选器选项文案（自定义下拉的选项是纯 JS 渲染，不会被 data-i18n 自动更新）
+  window.addEventListener('languagechange', () => {
+    populateLocalFilterOptions();
+    renderLocalList(); // 内部会重新调用 updateLocalFilterSummary()
   });
 }
 

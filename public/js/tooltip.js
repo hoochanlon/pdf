@@ -73,21 +73,22 @@ function autoPositionTooltip(element) {
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     
-    // 如果元素在视口顶部，tooltip显示在底部
-    if (rect.top < 100) {
-      element.setAttribute('data-tooltip-pos', 'bottom');
-    }
-    // 如果元素在视口底部，tooltip显示在顶部
-    else if (rect.bottom > viewportHeight - 100) {
-      element.setAttribute('data-tooltip-pos', 'top');
-    }
+    // 优先处理水平方向的边缘情况（左侧/右侧 pos 会将 tooltip 相对于触发元垂直居中，无论元素靠近顶部/底部都不会被裁切）
     // 如果元素在左侧，tooltip显示在右侧
-    else if (rect.left < 100) {
+    if (rect.left < 100) {
       element.setAttribute('data-tooltip-pos', 'right');
     }
     // 如果元素在右侧，tooltip显示在左侧
     else if (rect.right > viewportWidth - 100) {
       element.setAttribute('data-tooltip-pos', 'left');
+    }
+    // 如果元素在视口顶部，tooltip显示在底部
+    else if (rect.top < 100) {
+      element.setAttribute('data-tooltip-pos', 'bottom');
+    }
+    // 如果元素在视口底部，tooltip显示在顶部
+    else if (rect.bottom > viewportHeight - 100) {
+      element.setAttribute('data-tooltip-pos', 'top');
     }
     // 否则默认在顶部
     else {

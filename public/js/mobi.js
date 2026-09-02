@@ -2,6 +2,7 @@
 import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
+import { t } from './i18n.js';
 
 let mobiView = null;
 let foliateLoaded = false;
@@ -17,7 +18,7 @@ async function loadFoliateJS() {
     console.log('[MOBI] foliate-js 加载成功');
   } catch (error) {
     console.error('[MOBI] foliate-js 加载失败:', error);
-    throw new Error('无法加载 MOBI 阅读库: ' + error.message);
+    throw new Error(t('reader.mobiLibraryLoadFailed', null, { message: error.message }));
   }
 }
 
@@ -25,16 +26,15 @@ async function waitForLibrary(timeout = 10000) {
   const startedAt = Date.now();
   while (typeof customElements.get('foliate-view') === 'undefined') {
     if (Date.now() - startedAt >= timeout) {
-      throw new Error('foliate-js 初始化超时');
+      throw new Error(t('reader.mobiLibraryInitTimeout'));
     }
     await new Promise((resolve) => window.setTimeout(resolve, 50));
   }
   console.log('[MOBI] foliate-view 元素已注册');
 }
 
-function setMobiStatus(title, detail = '') {
+function setMobiStatus(title, detail = '', isError = false) {
   const panel = $('#mobi-status');
-  const isError = title.includes('失败') || title.includes('错误');
   panel.classList.toggle('is-hidden', false);
   panel.classList.toggle('is-error', isError);
   $('#mobi-status-title').textContent = title;
@@ -115,7 +115,7 @@ function buildMobiTOC(toc) {
   if (!toc || toc.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'pdf-outline-empty';
-    empty.textContent = '此书无目录';
+    empty.textContent = t('reader.mobiNoOutline');
     tocList.appendChild(empty);
     return;
   }
@@ -126,7 +126,7 @@ function buildMobiTOC(toc) {
     
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = item.label || '未命名章节';
+    button.textContent = item.label || t('reader.untitledChapter');
     button.style.paddingLeft = `${12 + level * 14}px`;
     button.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -441,14 +441,14 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
   setMobiProgress(savedProgress);
   
   try {
-    setMobiStatus('正在加载 MOBI', '准备阅读库...');
+    setMobiStatus(t('reader.loadingMobi'), t('reader.preparingLibrary'));
     
     // 先加载 foliate-js
     console.log('[MOBI] 步骤 1: 加载 foliate-js...');
     await loadFoliateJS();
     console.log('[MOBI] 步骤 1 完成: foliate-js 已加载');
     
-    setMobiStatus('正在加载 MOBI', '等待阅读库初始化...');
+    setMobiStatus(t('reader.loadingMobi'), t('reader.waitingLibraryInit'));
     
     // 等待 foliate-js 注册完成
     console.log('[MOBI] 步骤 2: 等待 foliate-view 注册...');
@@ -458,7 +458,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     const container = $('#mobi-container');
     container.replaceChildren();
     
-    setMobiStatus('正在加载 MOBI', '创建阅读器...');
+    setMobiStatus(t('reader.loadingMobi'), t('reader.creatingReader'));
     
     // 创建 foliate-view 元素
     console.log('[MOBI] 步骤 3: 创建 foliate-view 元素');
@@ -467,7 +467,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     container.appendChild(mobiView);
     console.log('[MOBI] 步骤 3 完成: foliate-view 元素已创建并添加到 DOM');
     
-    setMobiStatus('正在解析 MOBI', '加载文件内容...');
+    setMobiStatus(t('reader.parsingMobi'), t('reader.loadingFileContent'));
     
     console.log('[MOBI] 步骤 4: 调用 open() 方法...');
     console.log('[MOBI] 文件 URL:', url);
@@ -581,7 +581,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     console.error('[renderMOBI] 错误类型:', error.constructor.name);
     console.error('[renderMOBI] 错误消息:', error.message);
     console.error('[renderMOBI] 错误堆栈:', error.stack);
-    setMobiStatus('MOBI 加载失败', error.message || '无法打开此文件');
+    setMobiStatus(t('reader.mobiLoadFailedTitle'), error.message || t('reader.cannotOpenFile'), true);
   }
 }
 

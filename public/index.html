@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#172033">
-  <title>在线电子书阅读器</title>
+  <title data-i18n="site.title">在线电子书阅读器</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="importmap">
   {
@@ -21,7 +21,7 @@
   <header class="app-header">
     <div class="brand">
       <button class="header-btn sidebar-toggle" id="toggle-btn" type="button"
-        title="收起书架" aria-label="收起书架" aria-controls="sidebar" aria-expanded="true" data-sidebar-state="expanded">
+        aria-label="收起书架" aria-controls="sidebar" aria-expanded="true" data-sidebar-state="expanded">
         <img src="./icons/bookshelf.svg" alt="" aria-hidden="true" style="width: 20px; height: 20px; filter: brightness(0) invert(1);">
       </button>
       <div>
@@ -31,6 +31,26 @@
     </div>
     <div class="header-actions">
       <span class="book-count" id="book-count" style="display: none;"></span>
+      <div class="language-selector">
+        <button class="language-toggle" id="language-toggle" type="button" data-i18n-aria-label="common.switchLanguage" aria-label="切换语言" aria-haspopup="listbox" aria-expanded="false">
+          <img class="language-icon" src="./icons/translate.svg" alt="" aria-hidden="true" width="20" height="20">
+          <img class="language-flag" id="current-language-flag" src="./icons/china.svg" alt="" aria-hidden="true" width="16" height="16">
+        </button>
+        <div class="language-dropdown" id="language-dropdown" role="listbox" data-i18n-aria-label="common.selectLanguage" aria-label="选择语言" hidden>
+          <button class="language-option" data-lang="zh-CN" role="option" aria-selected="true">
+            <img class="language-flag" src="./icons/china.svg" alt="" aria-hidden="true" width="18" height="18">
+            <span class="language-name">中文</span>
+          </button>
+          <button class="language-option" data-lang="ja-JP" role="option" aria-selected="false">
+            <img class="language-flag" src="./icons/jp.svg" alt="" aria-hidden="true" width="18" height="18">
+            <span class="language-name">日本語</span>
+          </button>
+          <button class="language-option" data-lang="en-US" role="option" aria-selected="false">
+            <img class="language-flag" src="./icons/us.svg" alt="" aria-hidden="true" width="18" height="18">
+            <span class="language-name">English</span>
+          </button>
+        </div>
+      </div>
       <div class="social-links">
         <a href="https://github.com/yourusername" target="_blank" rel="noopener noreferrer" class="social-link">
           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -52,17 +72,17 @@
   </header>
 
   <main class="app-layout">
-    <aside class="sidebar" id="sidebar" aria-label="书籍列表">
+    <aside class="sidebar" id="sidebar" data-i18n-aria-label="library.ariaBookList" aria-label="书籍列表">
 
       <!-- Tab 导航 -->
-      <div class="sidebar-tabs" role="tablist" aria-label="书库切换">
+      <div class="sidebar-tabs" role="tablist" data-i18n-aria-label="library.ariaTabs" aria-label="书库切换">
         <button class="sidebar-tab" id="tab-online" role="tab"
           aria-selected="true" aria-controls="panel-online" type="button">
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
           </svg>
-          在线书库
+          <span class="sidebar-tab-label" data-i18n="library.online">在线书库</span>
           <span class="tab-count" id="sidebar-count">0</span>
         </button>
         <button class="sidebar-tab" id="tab-local" role="tab"
@@ -70,7 +90,7 @@
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
           </svg>
-          本地书库
+          <span class="sidebar-tab-label" data-i18n="library.local">本地书库</span>
           <span class="tab-count" id="local-count">0</span>
         </button>
       </div>
@@ -80,69 +100,69 @@
         <div class="library-tools">
           <div class="library-search-row">
             <label class="library-search">
-              <span class="sr-only">搜索书籍</span>
-              <input id="book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+              <span class="sr-only" data-i18n="library.search">搜索书名或作者</span>
+              <input id="book-search" type="search" data-i18n-placeholder="library.search" placeholder="搜索书名或作者" autocomplete="off">
             </label>
           </div>
           <div class="library-actions-row">
             <button class="library-filter-toggle" id="library-filter-toggle" type="button"
               aria-expanded="false" aria-controls="library-filter-panel">
               <span aria-hidden="true">☷</span>
-              <span>筛选</span>
+              <span data-i18n="library.filter">筛选</span>
               <span class="library-filter-count" id="library-filter-count" aria-hidden="true">0</span>
             </button>
             <button class="library-view-toggle" id="library-view-toggle" type="button">
               <span aria-hidden="true" id="view-icon">⊞</span>
-              <span>排列</span>
+              <span data-i18n="library.view">排列</span>
             </button>
-            <button class="library-reset" id="library-reset" type="button" disabled aria-label="清除筛选条件">
+            <button class="library-reset" id="library-reset" type="button" disabled data-i18n-aria-label="library.reset" aria-label="清除筛选条件">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true"><path d="M4.252 4v5H9M5.07 8a8 8 0 1 1-.818 6"/></svg>
             </button>
-            <button class="library-clear-progress" id="library-clear-progress" type="button" aria-label="清除所有阅读进度">
+            <button class="library-clear-progress" id="library-clear-progress" type="button" data-i18n-aria-label="library.clearProgress" aria-label="清除所有阅读进度">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 3l-8 8.5m-3.554-.415c-2.48.952-4.463.789-6.446.003c.5 6.443 3.504 8.92 7.509 9.912c0 0 3.017-2.134 3.452-7.193c.047-.548.07-.821-.043-1.13c-.114-.309-.338-.53-.785-.973c-.736-.728-1.103-1.092-1.54-1.184c-.437-.09-1.007.128-2.147.565"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.446S7 16.93 9.5 15"/><path d="M8.5 7.25a1.25 1.25 0 1 1-2.5 0a1.25 1.25 0 0 1 2.5 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.125 4H11m.25 0a.25.25 0 1 1-.5 0a.25.25 0 0 1 .5 0"/></svg>
             </button>
           </div>
           <div class="library-filter-panel" id="library-filter-panel" hidden>
             <div class="library-filters">
               <div class="library-filter">
-                <span id="filter-label-author">作者</span>
+                <span id="filter-label-author" data-i18n="library.author">作者</span>
                 <div class="cs-wrap cs-wrap--filter" id="cs-author-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-author">
-                    <span class="cs-label">全部作者</span>
+                    <span class="cs-label" data-i18n="library.allAuthors">全部作者</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-author" hidden></div>
                 </div>
               </div>
               <div class="library-filter">
-                <span id="filter-label-type">类型</span>
+                <span id="filter-label-type" data-i18n="library.type">类型</span>
                 <div class="cs-wrap cs-wrap--filter" id="cs-type-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-type">
-                    <span class="cs-label">全部类型</span>
+                    <span class="cs-label" data-i18n="library.allTypes">全部类型</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-type" hidden></div>
                 </div>
               </div>
               <div class="library-filter">
-                <span id="filter-label-format">格式</span>
+                <span id="filter-label-format" data-i18n="library.format">格式</span>
                 <div class="cs-wrap cs-wrap--filter" id="cs-format-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-format">
-                    <span class="cs-label">全部格式</span>
+                    <span class="cs-label" data-i18n="library.allFormats">全部格式</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-format" hidden></div>
                 </div>
               </div>
               <div class="library-filter library-filter-category">
-                <span id="filter-label-category">分类</span>
+                <span id="filter-label-category" data-i18n="library.category">分类</span>
                 <div class="cs-wrap cs-wrap--filter" id="cs-category-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-category">
-                    <span class="cs-label">全部分类</span>
+                    <span class="cs-label" data-i18n="library.allCategories">全部分类</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-category" hidden></div>
@@ -159,50 +179,50 @@
         <div class="library-tools">
           <div class="library-search-row">
             <label class="library-search">
-              <span class="sr-only">搜索本地书籍</span>
-              <input id="local-book-search" type="search" placeholder="搜索书名或作者" autocomplete="off">
+              <span class="sr-only" data-i18n="library.searchLocal">搜索本地书籍</span>
+              <input id="local-book-search" type="search" data-i18n-placeholder="library.searchLocal" placeholder="搜索书名或作者" autocomplete="off">
             </label>
           </div>
           <div class="library-actions-row">
             <button class="library-filter-toggle" id="local-filter-toggle" type="button"
               aria-expanded="false" aria-controls="local-filter-panel">
               <span aria-hidden="true">☷</span>
-              <span>筛选</span>
+              <span data-i18n="library.filter">筛选</span>
               <span class="library-filter-count" id="local-filter-count" aria-hidden="true">0</span>
             </button>
             <button class="library-view-toggle" id="local-view-toggle" type="button">
               <span aria-hidden="true" id="local-view-icon">⊞</span>
-              <span>排列</span>
+              <span data-i18n="library.view">排列</span>
             </button>
-            <button class="library-reset" id="local-filter-reset" type="button" disabled aria-label="清除筛选条件">
+            <button class="library-reset" id="local-filter-reset" type="button" disabled data-i18n-aria-label="library.reset" aria-label="清除筛选条件">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true"><path d="M4.252 4v5H9M5.07 8a8 8 0 1 1-.818 6"/></svg>
             </button>
-            <button class="library-clear-progress" id="local-clear-progress" type="button" hidden aria-label="清除所有阅读进度">
+            <button class="library-clear-progress" id="local-clear-progress" type="button" hidden data-i18n-aria-label="library.clearProgress" aria-label="清除所有阅读进度">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 3l-8 8.5m-3.554-.415c-2.48.952-4.463.789-6.446.003c.5 6.443 3.504 8.92 7.509 9.912c0 0 3.017-2.134 3.452-7.193c.047-.548.07-.821-.043-1.13c-.114-.309-.338-.53-.785-.973c-.736-.728-1.103-1.092-1.54-1.184c-.437-.09-1.007.128-2.147.565"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.446S7 16.93 9.5 15"/><path d="M8.5 7.25a1.25 1.25 0 1 1-2.5 0a1.25 1.25 0 0 1 2.5 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.125 4H11m.25 0a.25.25 0 1 1-.5 0a.25.25 0 0 1 .5 0"/></svg>
             </button>
-            <button class="library-clear-all" id="local-clear-all" type="button" hidden aria-label="清空书库">
+            <button class="library-clear-all" id="local-clear-all" type="button" hidden data-i18n-aria-label="library.clearAll" aria-label="清空书库">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M4 1C2.348 1 1 2.348 1 4a3.01 3.01 0 0 0 2.112 2.866l2.243 18.628A3 3 0 0 0 4 28c0 1.652 1.348 3 3 3h18c1.652 0 3-1.348 3-3c0-1.07-.564-2.01-1.41-2.542l2.236-18.574A3.01 3.01 0 0 0 31 4c0-1.652-1.348-3-3-3zM3 4c0-.548.452-1 1-1h24c.548 0 1 .452 1 1s-.452 1-1 1H4c-.548 0-1-.452-1-1m22.972 3l-.636 5.275l-.332.632l-1.86-3.535L24.39 7zm-3.857 0l-.11.21l-.11-.21zm-2.497 0l1.248 2.375l-1.812 3.445l-1.904-3.619L18.308 7zm-3.594 0l-.016.03l-.016-.03zm-2.316 0l1.158 2.201l-1.904 3.62l-1.813-3.448L12.397 7zm-3.593 0l-.107.204L9.9 7zM7.616 7l1.25 2.377l-1.857 3.535l-.427-.812L5.968 7zm3.468 18H8.839l1.123-2.133zm6 0H14.93l1.077-2.048zm6.092 0H20.93l1.122-2.134zm.019-4.306l1.463-2.783l-.546 4.527zM7.26 17.732l1.558 2.963l-.977 1.859zm14.743-6.192l1.86 3.538l-1.812 3.444l-1.859-3.536zm-2.953 5.619l1.86 3.535l-1.904 3.62l-1.859-3.535zm-6.043 7.156l-1.904-3.62l1.858-3.532l1.904 3.62zm3-5.704l-1.904-3.62l1.904-3.618l1.904 3.62zm-6.046-.087l-1.814-3.447l1.859-3.533l1.813 3.448zM7 27h18c.548 0 1 .452 1 1s-.452 1-1 1H7c-.548 0-1-.452-1-1s.452-1 1-1"/></svg>
             </button>
           </div>
           <div class="library-filter-panel" id="local-filter-panel" hidden>
             <div class="library-filters">
               <div class="library-filter">
-                <span id="local-filter-label-author">作者</span>
+                <span id="local-filter-label-author" data-i18n="library.author">作者</span>
                 <div class="cs-wrap cs-wrap--filter" id="local-cs-author-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-author">
-                    <span class="cs-label">全部作者</span>
+                    <span class="cs-label" data-i18n="library.allAuthors">全部作者</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-author" hidden></div>
                 </div>
               </div>
               <div class="library-filter">
-                <span id="local-filter-label-format">格式</span>
+                <span id="local-filter-label-format" data-i18n="library.format">格式</span>
                 <div class="cs-wrap cs-wrap--filter" id="local-cs-format-wrap">
                   <button class="cs-trigger" type="button"
                     aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-format">
-                    <span class="cs-label">全部格式</span>
+                    <span class="cs-label" data-i18n="library.allFormats">全部格式</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-format" hidden></div>
@@ -216,20 +236,18 @@
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
-            打开文件夹
+            <span data-i18n="library.openFolder">打开文件夹</span>
           </button>
           <button class="local-btn local-btn--secondary" id="local-open-file" type="button">
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
-            选择文件
+            <span data-i18n="library.selectFile">选择文件</span>
           </button>
         </div>
         <p class="local-dir-name" id="local-dir-name" hidden></p>
-        <p class="local-empty" id="local-empty">
-          打开文件夹或选择文件后，<br>这里会显示你的本地电子书
-        </p>
+        <p class="local-empty" id="local-empty"></p>
         <ul class="book-list view-list" id="local-book-list"></ul>
       </div>
 
@@ -237,21 +255,23 @@
 
     <div class="overlay" id="overlay"></div>
 
-    <section class="viewer" aria-label="阅读区域">
+    <section class="viewer" data-i18n-aria-label="reader.viewerArea" aria-label="阅读区域">
       <div class="empty-state" id="empty-state">
-        <div class="empty-icon" aria-hidden="true">▧</div>
-        <h2 id="empty-state-title">正在加载书籍列表…</h2>
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 512 512"><path fill="currentColor" d="M352 96c0-53.02-42.98-96-96-96s-96 42.98-96 96s42.98 96 96 96s96-42.98 96-96M233.59 241.1c-59.33-36.32-155.43-46.3-203.79-49.05C13.55 191.13 0 203.51 0 219.14v222.8c0 14.33 11.59 26.28 26.49 27.05c43.66 2.29 131.99 10.68 193.04 41.43c9.37 4.72 20.48-1.71 20.48-11.87V252.56c-.01-4.67-2.32-8.95-6.42-11.46m248.61-49.05c-48.35 2.74-144.46 12.73-203.78 49.05c-4.1 2.51-6.41 6.96-6.41 11.63v245.79c0 10.19 11.14 16.63 20.54 11.9c61.04-30.72 149.32-39.11 192.97-41.4c14.9-.78 26.49-12.73 26.49-27.06V219.14c-.01-15.63-13.56-28.01-29.81-27.09"/></svg>
+        </div>
+        <h2 id="empty-state-title" data-i18n="reader.emptyTitle">正在加载书籍列表…</h2>
         <p id="empty-state-message"></p>
       </div>
 
       <div class="pdf-reader" id="pdf-reader">
         <div class="pdf-toolbar">
           <div class="pdf-toolbar-group">
-            <button class="reader-btn" id="pdf-sidebar-toggle" type="button" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
+            <button class="reader-btn" id="pdf-sidebar-toggle" type="button" data-i18n-aria-label="reader.showTOC" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
           </div>
           <div class="pdf-page-jump">
-            <label class="sr-only" for="pdf-page-input">跳转到 PDF 页码</label>
-            <input id="pdf-page-input" type="number" min="1" inputmode="numeric" placeholder="—" aria-label="跳转到 PDF 页码">
+            <label class="sr-only" for="pdf-page-input" data-i18n="reader.pageJump">跳转到 PDF 页码</label>
+            <input id="pdf-page-input" type="number" min="1" inputmode="numeric" placeholder="—" data-i18n-aria-label="reader.pageJump" aria-label="跳转到 PDF 页码">
             <span aria-hidden="true">/</span>
             <output id="pdf-page-total">—</output>
           </div>
@@ -260,43 +280,43 @@
           </div>
           <div class="pdf-toolbar-group pdf-toolbar-tools">
             <span class="pdf-progress-value" id="pdf-progress-value">0%</span>
-            <button class="reader-btn" id="pdf-rotate-clockwise" type="button" title="旋转" aria-label="旋转">↻</button>
-            <a class="reader-btn reader-download-btn" id="pdf-download" aria-label="下载" download>
+            <button class="reader-btn" id="pdf-rotate-clockwise" type="button" data-i18n-title="reader.rotate" title="旋转" data-i18n-aria-label="reader.rotate" aria-label="旋转">↻</button>
+            <a class="reader-btn reader-download-btn" id="pdf-download" data-i18n-aria-label="reader.download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
             </a>
             <label class="pdf-zoom-control" for="pdf-zoom-select">
-              <span class="sr-only">缩放模式</span>
+              <span class="sr-only" data-i18n="reader.zoom">缩放模式</span>
               <div class="cs-wrap cs-wrap--toolbar" id="cs-zoom-wrap">
                 <button class="cs-trigger" id="pdf-zoom-select" type="button"
-                  aria-haspopup="listbox" aria-expanded="false" aria-label="缩放模式">
-                  <span class="cs-label">适合宽度</span>
+                  aria-haspopup="listbox" aria-expanded="false" data-i18n-aria-label="reader.zoom" aria-label="缩放模式">
+                  <span class="cs-label" data-i18n="reader.fitWidth">适合宽度</span>
                   <span class="cs-arrow" aria-hidden="true"></span>
                 </button>
-                <div class="cs-listbox" role="listbox" aria-label="缩放模式" hidden></div>
+                <div class="cs-listbox" role="listbox" data-i18n-aria-label="reader.zoom" aria-label="缩放模式" hidden></div>
               </div>
             </label>
-            <span class="reader-source-icon" id="reader-source-icon-pdf" hidden aria-label="书库来源">
+            <span class="reader-source-icon" id="reader-source-icon-pdf" hidden data-i18n-aria-label="reader.librarySource" aria-label="书库来源">
               <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-pdf">
             </span>
-            <span class="reader-format-icon" aria-label="PDF 格式">
+            <span class="reader-format-icon" data-i18n-aria-label="reader.formatPdf" aria-label="PDF 格式">
               <img src="./icons/pdf.svg" alt="" aria-hidden="true" width="16" height="16">
             </span>
           </div>
         </div>
         <div class="pdf-workspace">
           <aside class="pdf-sidebar" id="pdf-sidebar" aria-hidden="true">
-            <div class="pdf-sidebar-tabs" role="tablist" aria-label="PDF 侧栏面板">
-              <button type="button" role="tab" id="pdf-tab-outline" class="pdf-sidebar-tab" aria-selected="true">目录</button>
-              <button type="button" role="tab" id="pdf-tab-thumbs" class="pdf-sidebar-tab" aria-selected="false">缩略图</button>
+            <div class="pdf-sidebar-tabs" role="tablist" data-i18n-aria-label="reader.pdfSidebarPanel" aria-label="PDF 侧栏面板">
+              <button type="button" role="tab" id="pdf-tab-outline" class="pdf-sidebar-tab" aria-selected="true" data-i18n="reader.outline">目录</button>
+              <button type="button" role="tab" id="pdf-tab-thumbs" class="pdf-sidebar-tab" aria-selected="false" data-i18n="reader.thumbnails">缩略图</button>
             </div>
             <ul class="pdf-outline" id="pdf-outline"></ul>
             <div class="pdf-thumbnails" id="pdf-thumbnails" hidden></div>
           </aside>
-          <div class="pdf-viewer-container" id="pdf-viewer-container" tabindex="0" aria-label="PDF 阅读内容">
+          <div class="pdf-viewer-container" id="pdf-viewer-container" tabindex="0" data-i18n-aria-label="reader.pdfContentAria" aria-label="PDF 阅读内容">
             <div id="pdf-viewer" class="pdfViewer"></div>
           </div>
         </div>
-        <div class="pdf-progress-wrap" aria-label="PDF 阅读进度">
+        <div class="pdf-progress-wrap" data-i18n-aria-label="reader.pdfProgressAria" aria-label="PDF 阅读进度">
           <div class="pdf-progress-bar" id="pdf-progress-bar"></div>
         </div>
       </div>
@@ -304,39 +324,39 @@
       <div class="epub-reader" id="epub-reader">
         <div class="epub-toolbar">
           <div class="epub-nav-group">
-            <button class="reader-btn" id="epub-toc" type="button" aria-label="显示目录" aria-controls="epub-sidebar" aria-expanded="false">☰</button>
+            <button class="reader-btn" id="epub-toc" type="button" data-i18n-aria-label="reader.showTOC" aria-label="显示目录" aria-controls="epub-sidebar" aria-expanded="false">☰</button>
           </div>
           <div class="epub-heading">
-            <strong id="epub-title">正在加载…</strong>
+            <strong id="epub-title" data-i18n="reader.loadingBook">正在加载…</strong>
           </div>
           <div class="epub-tools">
             <span class="epub-progress-value" id="epub-progress-value">0%</span>
-            <a class="reader-btn reader-download-btn" id="epub-download" aria-label="下载" download>
+            <a class="reader-btn reader-download-btn" id="epub-download" data-i18n-aria-label="reader.download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
             </a>
-            <span class="reader-source-icon" id="reader-source-icon-epub" hidden aria-label="书库来源">
+            <span class="reader-source-icon" id="reader-source-icon-epub" hidden data-i18n-aria-label="reader.librarySource" aria-label="书库来源">
               <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-epub">
             </span>
-            <span class="reader-format-icon" aria-label="EPUB 格式">
+            <span class="reader-format-icon" data-i18n-aria-label="reader.formatEpub" aria-label="EPUB 格式">
               <img src="./icons/epub.svg" alt="" aria-hidden="true" width="16" height="16">
             </span>
           </div>
         </div>
         <div class="epub-workspace">
           <aside class="pdf-sidebar" id="epub-sidebar" aria-hidden="true">
-            <div class="pdf-sidebar-header">目录</div>
+            <div class="pdf-sidebar-header" data-i18n="reader.outline">目录</div>
             <ul class="pdf-outline" id="epub-toc-list"></ul>
           </aside>
-          <div class="epub-container" id="epub-container" aria-label="EPUB 阅读内容"></div>
+          <div class="epub-container" id="epub-container" data-i18n-aria-label="reader.epubContentAria" aria-label="EPUB 阅读内容"></div>
         </div>
         <div class="epub-status" id="epub-status" role="status" aria-live="polite">
           <div class="epub-status-card">
             <span class="epub-status-spinner" aria-hidden="true"></span>
-            <strong id="epub-status-title">正在加载 EPUB</strong>
-            <span id="epub-status-detail">正在准备阅读内容…</span>
+            <strong id="epub-status-title" data-i18n="reader.loadingEpub">正在加载 EPUB</strong>
+            <span id="epub-status-detail" data-i18n="reader.preparingContent">正在准备阅读内容…</span>
           </div>
         </div>
-        <div class="epub-progress-wrap" aria-label="EPUB 阅读进度" id="epub-progress-wrap">
+        <div class="epub-progress-wrap" data-i18n-aria-label="reader.epubProgressAria" aria-label="EPUB 阅读进度" id="epub-progress-wrap">
           <div class="epub-progress-track">
             <div class="epub-progress-bar" id="epub-progress-bar"></div>
           </div>
@@ -347,39 +367,39 @@
       <div class="mobi-reader" id="mobi-reader">
         <div class="epub-toolbar">
           <div class="epub-nav-group">
-            <button class="reader-btn" id="mobi-toc" type="button" aria-label="显示目录" aria-controls="mobi-sidebar" aria-expanded="false">☰</button>
+            <button class="reader-btn" id="mobi-toc" type="button" data-i18n-aria-label="reader.showTOC" aria-label="显示目录" aria-controls="mobi-sidebar" aria-expanded="false">☰</button>
           </div>
           <div class="epub-heading">
-            <strong id="mobi-title">正在加载…</strong>
+            <strong id="mobi-title" data-i18n="reader.loadingBook">正在加载…</strong>
           </div>
           <div class="epub-tools">
             <span class="epub-progress-value" id="mobi-progress-value">0%</span>
-            <a class="reader-btn reader-download-btn" id="mobi-download" aria-label="下载" download>
+            <a class="reader-btn reader-download-btn" id="mobi-download" data-i18n-aria-label="reader.download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
             </a>
-            <span class="reader-source-icon" id="reader-source-icon-mobi" hidden aria-label="书库来源">
+            <span class="reader-source-icon" id="reader-source-icon-mobi" hidden data-i18n-aria-label="reader.librarySource" aria-label="书库来源">
               <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-mobi">
             </span>
-            <span class="reader-format-icon" aria-label="MOBI 格式">
+            <span class="reader-format-icon" data-i18n-aria-label="reader.formatMobi" aria-label="MOBI 格式">
               <img src="./icons/mobi.svg" alt="" aria-hidden="true" width="16" height="16">
             </span>
           </div>
         </div>
         <div class="mobi-workspace">
           <aside class="pdf-sidebar" id="mobi-sidebar" aria-hidden="true">
-            <div class="pdf-sidebar-header">目录</div>
+            <div class="pdf-sidebar-header" data-i18n="reader.outline">目录</div>
             <ul class="pdf-outline" id="mobi-toc-list"></ul>
           </aside>
-          <div class="mobi-container" id="mobi-container" aria-label="MOBI 阅读内容"></div>
+          <div class="mobi-container" id="mobi-container" data-i18n-aria-label="reader.mobiContentAria" aria-label="MOBI 阅读内容"></div>
         </div>
         <div class="epub-status" id="mobi-status" role="status" aria-live="polite">
           <div class="epub-status-card">
             <span class="epub-status-spinner" aria-hidden="true"></span>
-            <strong id="mobi-status-title">正在加载 MOBI</strong>
-            <span id="mobi-status-detail">正在准备阅读内容…</span>
+            <strong id="mobi-status-title" data-i18n="reader.loadingMobi">正在加载 MOBI</strong>
+            <span id="mobi-status-detail" data-i18n="reader.preparingContent">正在准备阅读内容…</span>
           </div>
         </div>
-        <div class="epub-progress-wrap" aria-label="MOBI 阅读进度" id="mobi-progress-wrap">
+        <div class="epub-progress-wrap" data-i18n-aria-label="reader.mobiProgressAria" aria-label="MOBI 阅读进度" id="mobi-progress-wrap">
           <div class="epub-progress-track">
             <div class="epub-progress-bar" id="mobi-progress-bar"></div>
           </div>

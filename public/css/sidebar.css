@@ -234,6 +234,7 @@
   justify-content: center;
   gap: 6px;
   flex: 1;
+  min-width: 0;
   height: 36px;
   padding: 0 8px;
   color: var(--text-secondary);
@@ -244,7 +245,17 @@
   font-size: 13px;
   font-weight: 500;
   transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.sidebar-tab svg {
+  flex-shrink: 0;
+}
+
+.sidebar-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .sidebar-tab:hover {
@@ -261,6 +272,7 @@
 
 .tab-count {
   display: grid;
+  flex-shrink: 0;
   min-width: 20px;
   height: 20px;
   padding: 0 5px;

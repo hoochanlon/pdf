@@ -22,12 +22,18 @@
 }
 
 .empty-icon {
+  width: 80px;
+  height: 80px;
   color: #a7a4ff;
-  font-size: 80px;
-  line-height: 1;
   opacity: 0.85;
   filter: drop-shadow(0 4px 12px rgba(113, 107, 242, 0.3));
   animation: float 3s ease-in-out infinite;
+}
+
+.empty-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 @keyframes float {

@@ -1,6 +1,6 @@
 // 侧边栏控制模块
 import { $, isMobile } from './utils.js';
-import { updateTooltip } from './tooltip.js';
+import { t } from './i18n.js';
 
 const sidebar = $('#sidebar');
 const overlay = $('#overlay');
@@ -8,12 +8,11 @@ const toggleButton = $('#toggle-btn');
 
 function setSidebarToggleState(status) {
   const expanded = status === 'expanded';
-  const label = expanded ? '收起书架' : '展开书架';
+  const label = t(expanded ? 'sidebar.collapse' : 'sidebar.expand');
   toggleButton.dataset.sidebarState = status;
   toggleButton.setAttribute('aria-controls', 'sidebar');
   toggleButton.setAttribute('aria-expanded', String(expanded));
   toggleButton.setAttribute('aria-label', label);
-  updateTooltip(toggleButton, label);
 }
 
 export function closeSidebar() {
@@ -58,4 +57,9 @@ export function initSidebar() {
 
   window.matchMedia('(max-width: 768px)').addEventListener('change', syncSidebar);
   syncSidebar();
+
+  // 切换语言后刷新 aria-label
+  window.addEventListener('languagechange', () => {
+    setSidebarToggleState(toggleButton.dataset.sidebarState || 'expanded');
+  });
 }

@@ -146,6 +146,19 @@
   .epub-page-jump input {
     width: 36px;
   }
+
+  .sidebar-tab {
+    gap: 4px;
+    padding: 0 4px;
+    font-size: 12px;
+  }
+
+  .tab-count {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

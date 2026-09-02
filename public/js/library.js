@@ -4,6 +4,7 @@ import { $, bookListUrl, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.j
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearOnlineReadingStatus } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
 import { CustomSelect } from './select.js';
+import { t } from './i18n.js';
 
 const filters = {
   query: '',
@@ -26,6 +27,13 @@ let csCategory = null;
 
 function normalizeText(value) {
   return String(value ?? '').trim().toLocaleLowerCase();
+}
+
+// 图书/论文是内置的两种类型，翻译显示；自定义类型（用户在 books.json 里自行填写的）原样显示
+function getTypeLabel(type) {
+  if (type === '论文') return t('library.typePaper');
+  if (type === '图书' || !type) return t('library.typeBook');
+  return type;
 }
 
 function withoutExtension(filename) {
@@ -82,7 +90,7 @@ function formatReadingProgress(file) {
 
   // PDF 显示页码信息
   if (location && location.kind === 'pdf-page') {
-    return `第${location.value}页 (${percentage}%)`;
+    return t('reader.pageProgress', null, { page: location.value, percent: percentage });
   }
 
   // EPUB/MOBI 只显示百分比
@@ -138,7 +146,7 @@ function updateFilterSummary() {
   count.textContent = activeCount;
   count.hidden = activeCount === 0;
   toggle.classList.toggle('is-active', activeCount > 0);
-  toggle.setAttribute('aria-label', activeCount ? `筛选，${activeCount}项已启用` : '筛选');
+  toggle.setAttribute('aria-label', activeCount ? t('library.filterActive', null, { count: activeCount }) : t('library.filter'));
 }
 
 function populateFilterOptions() {
@@ -162,15 +170,15 @@ function populateFilterOptions() {
     .map((format) => createOption(format, format, formatCounts.get(format)));
   const typeOptions = [...typeCounts.keys()]
     .sort((left, right) => left.localeCompare(right, 'zh-CN'))
-    .map((type) => createOption(type, type, typeCounts.get(type)));
+    .map((type) => createOption(type, getTypeLabel(type), typeCounts.get(type)));
   const categoryOptions = [...categoryCounts.keys()]
     .sort((left, right) => left.localeCompare(right, 'zh-CN'))
     .map((category) => createOption(category, category, categoryCounts.get(category)));
 
-  replaceOptions(csAuthor,   authorOptions,   '全部作者');
-  replaceOptions(csFormat,   formatOptions,   '全部格式');
-  replaceOptions(csType,     typeOptions,     '全部类型');
-  replaceOptions(csCategory, categoryOptions, '全部分类');
+  replaceOptions(csAuthor,   authorOptions,   t('library.allAuthors'));
+  replaceOptions(csFormat,   formatOptions,   t('library.allFormats'));
+  replaceOptions(csType,     typeOptions,     t('library.allTypes'));
+  replaceOptions(csCategory, categoryOptions, t('library.allCategories'));
 }
 
 function updateEmptyState(title, message = '') {
@@ -214,19 +222,19 @@ function renderBookList() {
   list.replaceChildren();
 
   if (!books.length) {
-    updateEmptyState('书架空空如也', '请添加书籍到 books.json');
+    updateEmptyState(t('reader.libraryEmpty'), t('reader.libraryEmptyHint'));
     if (emptyState) emptyState.style.display = 'flex';
     return;
   }
   if (!visibleBooks.length) {
-    updateEmptyState('未找到匹配的书籍', '试试调整筛选条件');
+    updateEmptyState(t('reader.noMatch'), t('reader.noMatchHint'));
     if (emptyState) emptyState.style.display = 'flex';
     return;
   }
 
   // 有书籍显示时，更新empty-state为默认提示
   if (!state.currentBook) {
-    updateEmptyState('选择一本书开始阅读', '');
+    updateEmptyState(t('reader.selectBook'), '');
   }
 
   visibleBooks.forEach((book) => {
@@ -316,7 +324,7 @@ function renderBookList() {
       const gridClearBtn = document.createElement('button');
       gridClearBtn.className = 'local-delete-btn book-clear-status-btn';
       gridClearBtn.type = 'button';
-      gridClearBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+      gridClearBtn.setAttribute('aria-label', t('library.clearBookProgress', null, { title: book.title }));
       gridClearBtn.textContent = '↺';
       gridClearBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -394,7 +402,7 @@ function renderBookList() {
       const isPaper = book.type === '论文';
       const typeBadge = document.createElement('span');
       typeBadge.className = `type-badge ${isPaper ? 'type-paper' : 'type-book'}`;
-      typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${book.type}</span>`;
+      typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${getTypeLabel(book.type)}</span>`;
       category.appendChild(typeBadge);
 
       const categoryBadge = document.createElement('span');
@@ -412,7 +420,7 @@ function renderBookList() {
       const clearBtn = document.createElement('button');
       clearBtn.className = 'local-delete-btn book-clear-status-btn';
       clearBtn.type = 'button';
-      clearBtn.setAttribute('aria-label', `清除《${book.title}》的阅读进度`);
+      clearBtn.setAttribute('aria-label', t('library.clearBookProgress', null, { title: book.title }));
       clearBtn.textContent = '↺';
       clearBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -460,10 +468,10 @@ function bindControls() {
 
   // 初始填充空选项（等 populateFilterOptions 后会被替换）
   [
-    [csAuthor,   '全部作者'],
-    [csFormat,   '全部格式'],
-    [csType,     '全部类型'],
-    [csCategory, '全部分类'],
+    [csAuthor,   t('library.allAuthors')],
+    [csFormat,   t('library.allFormats')],
+    [csType,     t('library.allTypes')],
+    [csCategory, t('library.allCategories')],
   ].forEach(([cs, label]) => cs.setOptions([{ value: '', label }]));
 
   $('#book-search').addEventListener('input', (event) => {
@@ -500,7 +508,7 @@ function bindControls() {
     // 统计有阅读记录的网络书数量（不含 __local__ 前缀）
     const count = books.filter(b => getBookReadingStatus(b.file) !== 'unread' || getBookReadingProgress(b.file) > 0).length;
     if (!count) return;
-    if (!confirm(`确认清除全部 ${count} 本书的阅读进度？`)) return;
+    if (!confirm(t('dialogs.clearOnlineProgress', null, { count }))) return;
     clearOnlineReadingStatus();
     renderBookList();
   });
@@ -511,6 +519,12 @@ function bindControls() {
     // 2. 局部更新对应书籍条目的进度，避免全量重渲染
     const file = detail?.file || state.activeFile;
     if (file) updateBookProgress(file);
+  });
+
+  // 切换语言后，重新生成筛选器选项文案、书籍卡片上的类型徽章、空状态文案（这些都是纯 JS 渲染，不会被 data-i18n 自动更新）
+  window.addEventListener('languagechange', () => {
+    populateFilterOptions();
+    renderBookList(); // 内部会重新调用 updateFilterSummary()
   });
 }
 
@@ -580,7 +594,7 @@ function updateViewUI() {
 
 export async function loadBookList(onOpenBook) {
   console.log('[loadBookList] 开始执行');
-  updateEmptyState('正在加载书籍列表…', '');
+  updateEmptyState(t('reader.loading'), '');
   openBookHandler = onOpenBook;
   bindControls();
   updateViewUI(); // 初始化视图UI
@@ -630,6 +644,6 @@ export async function loadBookList(onOpenBook) {
     updateBookCount(0);
     $('#sidebar-count').textContent = '0';
     $('#book-list').replaceChildren();
-    updateEmptyState('加载失败', '无法读取 books.json，请检查文件是否存在');
+    updateEmptyState(t('reader.loadFailed'), t('reader.loadFailedHint'));
   }
 }
