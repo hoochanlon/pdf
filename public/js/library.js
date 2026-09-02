@@ -1,6 +1,6 @@
 // 书架目录、搜索与筛选
 import { state } from './state.js';
-import { $, bookListUrl, isEpub, isMobi } from './utils.js';
+import { $, bookListUrl, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearOnlineReadingStatus } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
 import { CustomSelect } from './select.js';
@@ -387,9 +387,16 @@ function renderBookList() {
         author.appendChild(progressEl);
       }
 
-      // 第3行：分类徽章
+      // 第3行：类型徽章 + 分类徽章
       const category = document.createElement('div');
       category.className = 'book-meta book-category';
+
+      const isPaper = book.type === '论文';
+      const typeBadge = document.createElement('span');
+      typeBadge.className = `type-badge ${isPaper ? 'type-paper' : 'type-book'}`;
+      typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${book.type}</span>`;
+      category.appendChild(typeBadge);
+
       const categoryBadge = document.createElement('span');
       categoryBadge.className = 'category-badge';
       categoryBadge.textContent = book.category;

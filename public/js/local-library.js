@@ -3,7 +3,7 @@
 // • 独立搜索、作者筛选、阅读状态筛选、列表/网格排列
 // • 支持单本删除、一键清空（不删除实际文件）
 
-import { $, isEpub, isMobi } from './utils.js';
+import { $, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearAllReadingStatus } from './reading.js';
 import { CustomSelect } from './select.js';
 import { getLocalCover, revokeLocalCover, revokeAllLocalCovers } from './local-covers.js';
@@ -342,6 +342,15 @@ function buildLocalBookItem(book) {
 
     const formatRow = document.createElement('div');
     formatRow.className = 'book-meta book-category';
+
+    // 类型徽章（本地书默认图书）
+    const localType = book.type || '图书';
+    const isPaper = localType === '论文';
+    const typeBadge = document.createElement('span');
+    typeBadge.className = `type-badge ${isPaper ? 'type-paper' : 'type-book'}`;
+    typeBadge.innerHTML = `${isPaper ? ICON_PAPER : ICON_BOOK}<span>${localType}</span>`;
+    formatRow.appendChild(typeBadge);
+
     const formatBadgeEl = document.createElement('span');
     formatBadgeEl.className = 'category-badge';
     formatBadgeEl.textContent = book.format;

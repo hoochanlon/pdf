@@ -151,28 +151,55 @@
 }
 
 .library-reset {
+  margin-left: auto;
   justify-self: end;
-  padding: 0;
-  color: var(--primary);
-  background: transparent;
-  border: 0;
+}
+
+.library-reset,
+.library-clear-progress,
+.library-clear-all {
+  display: inline-flex;
+  height: 36px;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 12px;
+  flex: 0 0 auto;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.library-reset svg,
+.library-clear-progress svg,
+.library-clear-all svg {
+  flex-shrink: 0;
+}
+
+.library-reset:hover:not(:disabled) {
+  color: var(--primary-dark);
+  background: #f0efff;
+  border-color: #b2afff;
+}
+
+.library-clear-progress:hover {
+  color: #b45309;
+  background: #fff7ed;
+  border-color: #fcd34d;
+}
+
+.library-clear-all:hover {
+  color: #dc2626;
+  background: #fff5f5;
+  border-color: #fecaca;
 }
 
 .library-reset:disabled {
-  visibility: hidden;
-}
-
-.library-clear-progress {
-  flex: 0 0 auto;
-  padding: 0;
-  color: #b45309;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font-size: 12px;
-  white-space: nowrap;
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .library-state {
@@ -314,7 +341,6 @@
   color: #dc2626;
   background: #fff5f5;
   border: 1px solid #fecaca;
-  margin-left: auto;
 }
 
 .local-btn--danger:hover {
@@ -817,14 +843,45 @@
 .book-category {
   display: flex;
   align-items: center;
+  gap: 6px;
   margin-top: 4px;
 }
 
+/* 类型徽章：实心填充，图书紫色 / 论文橙色 */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.type-badge svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.type-badge.type-book {
+  background: rgba(88, 80, 236, 0.14);
+  color: var(--primary);
+}
+
+.type-badge.type-paper {
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+}
+
+/* 分类徽章：描边样式，与实心类型徽章区分 */
 .category-badge {
   display: inline-block;
   padding: 3px 8px;
-  background: rgba(139, 135, 255, 0.12);
-  border: 1px solid rgba(139, 135, 255, 0.2);
+  background: transparent;
+  border: 1px solid rgba(139, 135, 255, 0.35);
   border-radius: 4px;
   color: var(--primary);
   font-size: 11px;

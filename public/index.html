@@ -95,8 +95,12 @@
               <span aria-hidden="true" id="view-icon">⊞</span>
               <span>排列</span>
             </button>
-            <button class="library-reset" id="library-reset" type="button" disabled>清除</button>
-            <button class="library-clear-progress" id="library-clear-progress" type="button" title="清除所有书籍的阅读进度">清除进度</button>
+            <button class="library-reset" id="library-reset" type="button" disabled aria-label="清除筛选条件">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true"><path d="M4.252 4v5H9M5.07 8a8 8 0 1 1-.818 6"/></svg>
+            </button>
+            <button class="library-clear-progress" id="library-clear-progress" type="button" aria-label="清除所有阅读进度">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 3l-8 8.5m-3.554-.415c-2.48.952-4.463.789-6.446.003c.5 6.443 3.504 8.92 7.509 9.912c0 0 3.017-2.134 3.452-7.193c.047-.548.07-.821-.043-1.13c-.114-.309-.338-.53-.785-.973c-.736-.728-1.103-1.092-1.54-1.184c-.437-.09-1.007.128-2.147.565"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.446S7 16.93 9.5 15"/><path d="M8.5 7.25a1.25 1.25 0 1 1-2.5 0a1.25 1.25 0 0 1 2.5 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.125 4H11m.25 0a.25.25 0 1 1-.5 0a.25.25 0 0 1 .5 0"/></svg>
+            </button>
           </div>
           <div class="library-filter-panel" id="library-filter-panel" hidden>
             <div class="library-filters">
@@ -170,7 +174,15 @@
               <span aria-hidden="true" id="local-view-icon">⊞</span>
               <span>排列</span>
             </button>
-            <button class="library-reset" id="local-filter-reset" type="button" disabled>清除</button>
+            <button class="library-reset" id="local-filter-reset" type="button" disabled aria-label="清除筛选条件">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" aria-hidden="true"><path d="M4.252 4v5H9M5.07 8a8 8 0 1 1-.818 6"/></svg>
+            </button>
+            <button class="library-clear-progress" id="local-clear-progress" type="button" hidden aria-label="清除所有阅读进度">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m21 3l-8 8.5m-3.554-.415c-2.48.952-4.463.789-6.446.003c.5 6.443 3.504 8.92 7.509 9.912c0 0 3.017-2.134 3.452-7.193c.047-.548.07-.821-.043-1.13c-.114-.309-.338-.53-.785-.973c-.736-.728-1.103-1.092-1.54-1.184c-.437-.09-1.007.128-2.147.565"/><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 16.446S7 16.93 9.5 15"/><path d="M8.5 7.25a1.25 1.25 0 1 1-2.5 0a1.25 1.25 0 0 1 2.5 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M11.125 4H11m.25 0a.25.25 0 1 1-.5 0a.25.25 0 0 1 .5 0"/></svg>
+            </button>
+            <button class="library-clear-all" id="local-clear-all" type="button" hidden aria-label="清空书库">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M4 1C2.348 1 1 2.348 1 4a3.01 3.01 0 0 0 2.112 2.866l2.243 18.628A3 3 0 0 0 4 28c0 1.652 1.348 3 3 3h18c1.652 0 3-1.348 3-3c0-1.07-.564-2.01-1.41-2.542l2.236-18.574A3.01 3.01 0 0 0 31 4c0-1.652-1.348-3-3-3zM3 4c0-.548.452-1 1-1h24c.548 0 1 .452 1 1s-.452 1-1 1H4c-.548 0-1-.452-1-1m22.972 3l-.636 5.275l-.332.632l-1.86-3.535L24.39 7zm-3.857 0l-.11.21l-.11-.21zm-2.497 0l1.248 2.375l-1.812 3.445l-1.904-3.619L18.308 7zm-3.594 0l-.016.03l-.016-.03zm-2.316 0l1.158 2.201l-1.904 3.62l-1.813-3.448L12.397 7zm-3.593 0l-.107.204L9.9 7zM7.616 7l1.25 2.377l-1.857 3.535l-.427-.812L5.968 7zm3.468 18H8.839l1.123-2.133zm6 0H14.93l1.077-2.048zm6.092 0H20.93l1.122-2.134zm.019-4.306l1.463-2.783l-.546 4.527zM7.26 17.732l1.558 2.963l-.977 1.859zm14.743-6.192l1.86 3.538l-1.812 3.444l-1.859-3.536zm-2.953 5.619l1.86 3.535l-1.904 3.62l-1.859-3.535zm-6.043 7.156l-1.904-3.62l1.858-3.532l1.904 3.62zm3-5.704l-1.904-3.62l1.904-3.618l1.904 3.62zm-6.046-.087l-1.814-3.447l1.859-3.533l1.813 3.448zM7 27h18c.548 0 1 .452 1 1s-.452 1-1 1H7c-.548 0-1-.452-1-1s.452-1 1-1"/></svg>
+            </button>
           </div>
           <div class="library-filter-panel" id="local-filter-panel" hidden>
             <div class="library-filters">
@@ -212,12 +224,6 @@
               <polyline points="14 2 14 8 20 8"/>
             </svg>
             选择文件
-          </button>
-          <button class="local-btn local-btn--danger" id="local-clear-all" type="button" hidden>
-            清空书库
-          </button>
-          <button class="local-btn local-btn--warning" id="local-clear-progress" type="button" hidden>
-            清除进度
           </button>
         </div>
         <p class="local-dir-name" id="local-dir-name" hidden></p>
