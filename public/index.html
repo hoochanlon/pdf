@@ -112,6 +112,17 @@
                 </div>
               </div>
               <div class="library-filter">
+                <span id="filter-label-type">类型</span>
+                <div class="cs-wrap cs-wrap--filter" id="cs-type-wrap">
+                  <button class="cs-trigger" type="button"
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-type">
+                    <span class="cs-label">全部类型</span>
+                    <span class="cs-arrow" aria-hidden="true"></span>
+                  </button>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-type" hidden></div>
+                </div>
+              </div>
+              <div class="library-filter">
                 <span id="filter-label-format">格式</span>
                 <div class="cs-wrap cs-wrap--filter" id="cs-format-wrap">
                   <button class="cs-trigger" type="button"
@@ -120,28 +131,6 @@
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
                   <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-format" hidden></div>
-                </div>
-              </div>
-              <div class="library-filter">
-                <span id="filter-label-language">语言</span>
-                <div class="cs-wrap cs-wrap--filter" id="cs-language-wrap">
-                  <button class="cs-trigger" type="button"
-                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-language">
-                    <span class="cs-label">全部语言</span>
-                    <span class="cs-arrow" aria-hidden="true"></span>
-                  </button>
-                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-language" hidden></div>
-                </div>
-              </div>
-              <div class="library-filter library-filter-status">
-                <span id="filter-label-status">阅读状态</span>
-                <div class="cs-wrap cs-wrap--filter" id="cs-status-wrap">
-                  <button class="cs-trigger" type="button"
-                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-label-status">
-                    <span class="cs-label">全部状态</span>
-                    <span class="cs-arrow" aria-hidden="true"></span>
-                  </button>
-                  <div class="cs-listbox" role="listbox" aria-labelledby="filter-label-status" hidden></div>
                 </div>
               </div>
               <div class="library-filter library-filter-category">
@@ -196,15 +185,15 @@
                   <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-author" hidden></div>
                 </div>
               </div>
-              <div class="library-filter library-filter-status">
-                <span id="local-filter-label-status">阅读状态</span>
-                <div class="cs-wrap cs-wrap--filter" id="local-cs-status-wrap">
+              <div class="library-filter">
+                <span id="local-filter-label-format">格式</span>
+                <div class="cs-wrap cs-wrap--filter" id="local-cs-format-wrap">
                   <button class="cs-trigger" type="button"
-                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-status">
-                    <span class="cs-label">全部状态</span>
+                    aria-haspopup="listbox" aria-expanded="false" aria-labelledby="local-filter-label-format">
+                    <span class="cs-label">全部格式</span>
                     <span class="cs-arrow" aria-hidden="true"></span>
                   </button>
-                  <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-status" hidden></div>
+                  <div class="cs-listbox" role="listbox" aria-labelledby="local-filter-label-format" hidden></div>
                 </div>
               </div>
             </div>

@@ -19,13 +19,28 @@ async function listBooksRecursive(dir, baseDir = dir) {
       const subBooks = await listBooksRecursive(fullPath, baseDir);
       books.push(...subBooks);
     } else if (entry.isFile() && /\.(pdf|epub|mobi|azw3?)$/i.test(entry.name)) {
-      // 计算相对路径作为分类
-      const relativePath = path.relative(baseDir, dir);
-      const category = relativePath || '未分类';
+      // 计算相对路径，按层级解析「类型 / 分类」
+      const relativePath = path.relative(baseDir, dir).replace(/\\/g, '/');
+      const parts = relativePath ? relativePath.split('/') : [];
+      let type, category;
+      if (parts.length === 0) {
+        // 根目录文件
+        type = '图书';
+        category = '未分类';
+      } else if (parts.length === 1) {
+        // 兼容旧结构：只有一层时默认为「图书」
+        type = '图书';
+        category = parts[0];
+      } else {
+        // 两层及以上：第一层为类型，其余为分类
+        type = parts[0];
+        category = parts.slice(1).join('/');
+      }
       
       books.push({
-        file: path.relative(baseDir, fullPath).replace(/\\/g, '/'), // 使用相对路径
-        category: category.replace(/\\/g, '/') // 分类名
+        file: path.relative(baseDir, fullPath).replace(/\\/g, '/'),
+        type,
+        category
       });
     }
   }

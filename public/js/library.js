@@ -5,23 +5,11 @@ import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, c
 import { getBookCover, preloadCovers } from './covers.js';
 import { CustomSelect } from './select.js';
 
-const STATUS_OPTIONS = [
-  { value: 'unread', label: '未读' },
-  { value: 'read', label: '已读' }
-];
-
-const LANGUAGE_OPTIONS = [
-  { value: 'zh', label: '中文' },
-  { value: 'en', label: '英文' },
-  { value: 'ja', label: '日语' }
-];
-
 const filters = {
   query: '',
   author: '',
   format: '',
-  language: '',
-  status: '',
+  type: '',
   category: ''
 };
 
@@ -30,11 +18,10 @@ let openBookHandler = null;
 let controlsBound = false;
 let currentView = localStorage.getItem('library-view') || 'list'; // 'list' 或 'grid'
 
-// 五个筛选器的 CustomSelect 实例
+// 筛选器的 CustomSelect 实例
 let csAuthor = null;
 let csFormat = null;
-let csLanguage = null;
-let csStatus = null;
+let csType = null;
 let csCategory = null;
 
 function normalizeText(value) {
@@ -71,19 +58,6 @@ function inferAuthor(filename) {
   return separatorIndex > 0 ? base.slice(separatorIndex + 1).trim() : '';
 }
 
-function normalizeLanguage(value, text) {
-  const explicit = normalizeText(value);
-  if (/^(zh|zh-cn|chinese|中文|简体中文|繁体中文)$/.test(explicit)) return 'zh';
-  if (/^(en|en-us|english|英文)$/.test(explicit)) return 'en';
-  if (/^(ja|ja-jp|japanese|日语|日本語)$/.test(explicit)) return 'ja';
-
-  // 当前清单只有文件名；优先识别日文假名，再区分汉字和拉丁字母。
-  if (/[\u3040-\u30ff]/u.test(text)) return 'ja';
-  if (/[\u4e00-\u9fff]/u.test(text)) return 'zh';
-  if (/[a-z]/i.test(text)) return 'en';
-  return '';
-}
-
 function normalizeBook(rawBook) {
   const source = typeof rawBook === 'string' ? { file: rawBook } : (rawBook || {});
   const file = String(source.file ?? source.filename ?? source.name ?? source.path ?? '').trim();
@@ -92,18 +66,10 @@ function normalizeBook(rawBook) {
   const format = String(source.format || inferFormat(file)).replace(/^\./, '').toUpperCase();
   const title = String(source.title || inferTitle(file)).trim();
   const author = String(source.author || inferAuthor(file) || '未知作者').trim();
-  const language = normalizeLanguage(source.language || source.lang, title);
+  const type = String(source.type || '图书').trim();
   const category = String(source.category || '未分类').trim();
 
-  return { file, title, author, format, language, category };
-}
-
-function languageLabel(value) {
-  return LANGUAGE_OPTIONS.find((option) => option.value === value)?.label || '未识别';
-}
-
-function readingStatusLabel(value) {
-  return STATUS_OPTIONS.find((option) => option.value === value)?.label || '未读';
+  return { file, title, author, format, type, category };
 }
 
 function formatReadingProgress(file) {
@@ -128,7 +94,7 @@ function formatReadingProgress(file) {
 }
 
 function hasActiveFilters() {
-  return Boolean(filters.query || filters.author || filters.format || filters.language || filters.status || filters.category);
+  return Boolean(filters.query || filters.author || filters.format || filters.type || filters.category);
 }
 
 function matchesFilters(book) {
@@ -138,8 +104,7 @@ function matchesFilters(book) {
   return (!query || searchableText.includes(query))
     && (!filters.author || book.author === filters.author)
     && (!filters.format || book.format === filters.format)
-    && (!filters.language || book.language === filters.language)
-    && (!filters.status || getBookReadingStatus(book.file) === filters.status)
+    && (!filters.type || book.type === filters.type)
     && (!filters.category || book.category === filters.category);
 }
 
@@ -165,8 +130,7 @@ function updateFilterSummary() {
     filters.query,
     filters.author,
     filters.format,
-    filters.language,
-    filters.status,
+    filters.type,
     filters.category
   ].filter(Boolean).length;
   const toggle = $('#library-filter-toggle');
@@ -180,16 +144,13 @@ function updateFilterSummary() {
 function populateFilterOptions() {
   const authorCounts = new Map();
   const formatCounts = new Map();
-  const languageCounts = new Map();
-  const statusCounts = new Map();
+  const typeCounts = new Map();
   const categoryCounts = new Map();
 
   books.forEach((book) => {
     authorCounts.set(book.author, (authorCounts.get(book.author) || 0) + 1);
     formatCounts.set(book.format, (formatCounts.get(book.format) || 0) + 1);
-    if (book.language) languageCounts.set(book.language, (languageCounts.get(book.language) || 0) + 1);
-    const readingStatus = getBookReadingStatus(book.file);
-    statusCounts.set(readingStatus, (statusCounts.get(readingStatus) || 0) + 1);
+    typeCounts.set(book.type, (typeCounts.get(book.type) || 0) + 1);
     categoryCounts.set(book.category, (categoryCounts.get(book.category) || 0) + 1);
   });
 
@@ -199,24 +160,16 @@ function populateFilterOptions() {
   const formatOptions = [...formatCounts.keys()]
     .sort()
     .map((format) => createOption(format, format, formatCounts.get(format)));
-  const languageOptions = LANGUAGE_OPTIONS.map((language) => createOption(
-    language.value,
-    language.label,
-    languageCounts.get(language.value) || 0
-  ));
-  const statusOptions = STATUS_OPTIONS.map((status) => createOption(
-    status.value,
-    status.label,
-    statusCounts.get(status.value) || 0
-  ));
+  const typeOptions = [...typeCounts.keys()]
+    .sort((left, right) => left.localeCompare(right, 'zh-CN'))
+    .map((type) => createOption(type, type, typeCounts.get(type)));
   const categoryOptions = [...categoryCounts.keys()]
     .sort((left, right) => left.localeCompare(right, 'zh-CN'))
     .map((category) => createOption(category, category, categoryCounts.get(category)));
 
   replaceOptions(csAuthor,   authorOptions,   '全部作者');
   replaceOptions(csFormat,   formatOptions,   '全部格式');
-  replaceOptions(csLanguage, languageOptions, '全部语言');
-  replaceOptions(csStatus,   statusOptions,   '全部状态');
+  replaceOptions(csType,     typeOptions,     '全部类型');
   replaceOptions(csCategory, categoryOptions, '全部分类');
 }
 
@@ -280,7 +233,6 @@ function renderBookList() {
     const item = document.createElement('li');
     const epub = isEpub(book.file);
     const mobi = isMobi(book.file);
-    const readingStatus = getBookReadingStatus(book.file);
     const progressInfo = formatReadingProgress(book.file);
     const progress = getBookReadingProgress(book.file);
 
@@ -291,21 +243,21 @@ function renderBookList() {
     item.dataset.file = book.file;
     item.setAttribute('role', 'button');
     item.tabIndex = 0;
-    
+
     if (currentView === 'grid') {
       // 网格视图：封面卡片样式
       const formatBadge = document.createElement('span');
       formatBadge.className = 'book-format-badge';
       formatBadge.textContent = book.format;
-      
+
       const cover = document.createElement('div');
       cover.className = 'book-cover';
-      
+
       // 添加封面图片
       const coverImage = document.createElement('img');
       coverImage.className = 'book-cover-image';
       coverImage.alt = book.title;
-      
+
       // 加载封面（预加载后缓存命中时直接显示，无闪烁）
       getBookCover(book.file).then(coverUrl => {
         if (coverUrl) {
@@ -321,50 +273,45 @@ function renderBookList() {
       }).catch(() => {
         cover.classList.add('no-cover');
       });
-      
+
       const coverTitle = document.createElement('div');
       coverTitle.className = 'book-cover-title';
       coverTitle.textContent = book.title;
-      
+
       cover.appendChild(coverImage);
       cover.appendChild(coverTitle);
-      
+
       const footer = document.createElement('div');
       footer.className = 'book-footer';
-      
+
       const footerInfo = document.createElement('div');
       footerInfo.className = 'book-footer-info';
-      
+
       const footerAuthor = document.createElement('span');
       footerAuthor.className = 'book-footer-author';
       footerAuthor.textContent = book.author;
-      
-      const footerMeta = document.createElement('span');
-      footerMeta.className = 'book-footer-meta';
-      footerMeta.textContent = languageLabel(book.language);
-      
+
       footerInfo.appendChild(footerAuthor);
-      footerInfo.appendChild(footerMeta);
-      
+
       const progressWrap = document.createElement('div');
       progressWrap.className = 'book-progress-wrap';
-      
+
       const progressBar = document.createElement('div');
       progressBar.className = 'book-progress-bar';
       progressBar.style.width = `${progress * 100}%`;
-      
+
       if (progressInfo) {
         const progressText = document.createElement('span');
         progressText.className = 'book-progress-text';
         progressText.textContent = progressInfo;
         progressWrap.appendChild(progressText);
       }
-      
+
       progressWrap.appendChild(progressBar);
-      
+
       footer.appendChild(footerInfo);
       footer.appendChild(progressWrap);
-      
+
       // 网格视图：阅读状态清除按钮（悬停显示，右上角）
       const gridClearBtn = document.createElement('button');
       gridClearBtn.className = 'local-delete-btn book-clear-status-btn';
@@ -380,16 +327,16 @@ function renderBookList() {
       item.appendChild(cover);
       item.appendChild(footer);
       item.appendChild(gridClearBtn);
-      
+
     } else {
       // 列表视图：横向信息条样式，左侧显示封面缩略图
       const coverThumb = document.createElement('div');
       coverThumb.className = 'book-cover-thumb';
-      
+
       const coverImage = document.createElement('img');
       coverImage.className = 'book-cover-thumb-image';
       coverImage.alt = book.title;
-      
+
       // 加载封面（预加载后缓存命中时直接显示，无闪烁）
       getBookCover(book.file).then(coverUrl => {
         if (coverUrl) {
@@ -404,26 +351,26 @@ function renderBookList() {
       }).catch(() => {
         coverThumb.classList.add('no-cover');
       });
-      
+
       const formatBadge = document.createElement('span');
       formatBadge.className = 'book-cover-thumb-badge';
       formatBadge.textContent = book.format;
-      
+
       coverThumb.appendChild(coverImage);
       coverThumb.appendChild(formatBadge);
-      
+
       const infoSpan = document.createElement('span');
       infoSpan.className = 'book-info';
-      
+
       const arrowSpan = document.createElement('span');
       arrowSpan.className = 'book-arrow';
       arrowSpan.textContent = '›';
-      
+
       // 第1行：书名（最多2行）
       const name = document.createElement('div');
       name.className = 'book-name';
       name.textContent = book.title;
-      
+
       // 第2行：作者 + 进度（同一行）
       const author = document.createElement('div');
       author.className = 'book-meta book-author-row';
@@ -439,7 +386,7 @@ function renderBookList() {
         progressEl.textContent = progressInfo;
         author.appendChild(progressEl);
       }
-      
+
       // 第3行：分类徽章
       const category = document.createElement('div');
       category.className = 'book-meta book-category';
@@ -449,7 +396,7 @@ function renderBookList() {
       category.appendChild(categoryBadge);
 
       infoSpan.append(name, author, category);
-      
+
       item.appendChild(coverThumb);
       item.appendChild(infoSpan);
       item.appendChild(arrowSpan);
@@ -489,7 +436,7 @@ function bindControls() {
   if (controlsBound) return;
   controlsBound = true;
 
-  // 初始化五个筛选器 CustomSelect
+  // 初始化筛选器 CustomSelect
   const makeFilterSelect = (wrapId, onChangeFn) => {
     const wrap = $(`#${wrapId}`);
     return new CustomSelect(
@@ -501,16 +448,14 @@ function bindControls() {
 
   csAuthor   = makeFilterSelect('cs-author-wrap',   (v) => { filters.author   = v; });
   csFormat   = makeFilterSelect('cs-format-wrap',   (v) => { filters.format   = v; });
-  csLanguage = makeFilterSelect('cs-language-wrap', (v) => { filters.language = v; });
-  csStatus   = makeFilterSelect('cs-status-wrap',   (v) => { filters.status   = v; });
+  csType     = makeFilterSelect('cs-type-wrap',     (v) => { filters.type     = v; });
   csCategory = makeFilterSelect('cs-category-wrap', (v) => { filters.category = v; });
 
   // 初始填充空选项（等 populateFilterOptions 后会被替换）
   [
     [csAuthor,   '全部作者'],
     [csFormat,   '全部格式'],
-    [csLanguage, '全部语言'],
-    [csStatus,   '全部状态'],
+    [csType,     '全部类型'],
     [csCategory, '全部分类'],
   ].forEach(([cs, label]) => cs.setOptions([{ value: '', label }]));
 
@@ -529,14 +474,12 @@ function bindControls() {
     filters.query = '';
     filters.author = '';
     filters.format = '';
-    filters.language = '';
-    filters.status = '';
+    filters.type = '';
     filters.category = '';
     $('#book-search').value = '';
     csAuthor.setValue('',   true);
     csFormat.setValue('',   true);
-    csLanguage.setValue('', true);
-    csStatus.setValue('',   true);
+    csType.setValue('',     true);
     csCategory.setValue('', true);
     renderBookList();
   });
@@ -616,7 +559,7 @@ function updateBookCount(count) {
 function updateViewUI() {
   const bookList = $('#book-list');
   const viewIcon = $('#view-icon');
-  
+
   if (currentView === 'grid') {
     bookList.classList.remove('view-list');
     bookList.classList.add('view-grid');
@@ -650,17 +593,18 @@ export async function loadBookList(onOpenBook) {
 
     books = (Array.isArray(rawBooks) ? rawBooks : []).map(normalizeBook).filter(Boolean);
     console.log('[loadBookList] books 数量:', books.length);
-    
+
     // 保存元数据到全局状态，供阅读器使用
     state.booksMetadata = {};
     books.forEach(book => {
       state.booksMetadata[book.file] = {
         title: book.title,
         author: book.author,
+        type: book.type,
         category: book.category
       };
     });
-    
+
     updateBookCount(books.length);
     populateFilterOptions();
 

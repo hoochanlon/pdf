@@ -42,12 +42,24 @@ jobs:
                       # 递归扫描子文件夹
                       books.extend(scan_books(item, base_dir))
                   elif item.is_file() and item.suffix.lower() in {'.pdf', '.epub', '.mobi', '.azw', '.azw3'}:
-                      # 计算相对路径
+                      # 计算相对路径，按层级解析「类型 / 分类」
                       rel_path = item.relative_to(base_dir)
-                      category = str(rel_path.parent) if str(rel_path.parent) != '.' else '未分类'
+                      parts = rel_path.parent.parts
+                      if len(parts) == 0:
+                          type_name = '图书'
+                          category = '未分类'
+                      elif len(parts) == 1:
+                          # 兼容旧结构：只有一层时默认为「图书」
+                          type_name = '图书'
+                          category = parts[0]
+                      else:
+                          # 两层及以上：第一层为类型，其余为分类
+                          type_name = parts[0]
+                          category = '/'.join(parts[1:])
                       books.append({
                           'file': str(rel_path).replace('\\', '/'),
-                          'category': category.replace('\\', '/')
+                          'type': type_name,
+                          'category': category
                       })
               return books
 

@@ -590,7 +590,7 @@
   background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); /* PDF 红色 */
   border-radius: 6px;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 4px 8px rgba(0, 0, 0, 0.15),
     0 1px 3px rgba(0, 0, 0, 0.1),
     inset -2px 0 4px rgba(0, 0, 0, 0.1);
@@ -606,9 +606,9 @@
   top: 8px;
   bottom: 8px;
   width: 4px;
-  background: linear-gradient(to right, 
-    rgba(0, 0, 0, 0.15) 0%, 
-    rgba(0, 0, 0, 0.05) 50%, 
+  background: linear-gradient(to right,
+    rgba(0, 0, 0, 0.15) 0%,
+    rgba(0, 0, 0, 0.05) 50%,
     rgba(255, 255, 255, 0.1) 100%);
   z-index: 10;
 }
@@ -639,7 +639,7 @@
 /* 网格视图hover效果 */
 .book-list.view-grid .book-item:hover {
   transform: translateY(-8px) rotateY(-2deg) !important;
-  box-shadow: 
+  box-shadow:
     0 12px 32px rgba(0, 0, 0, 0.25),
     0 4px 8px rgba(0, 0, 0, 0.15),
     inset -2px 0 6px rgba(0, 0, 0, 0.15),
@@ -666,7 +666,7 @@
 
 /* 网格视图active状态 */
 .book-list.view-grid .book-item.active {
-  box-shadow: 
+  box-shadow:
     0 12px 32px rgba(88, 80, 236, 0.4),
     0 4px 8px rgba(0, 0, 0, 0.15),
     0 0 0 3px rgba(139, 135, 255, 0.5),
@@ -735,7 +735,7 @@
   background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
   border-radius: 4px;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.1),
     inset -1px 0 2px rgba(0, 0, 0, 0.1);
 }
@@ -808,19 +808,16 @@
 
 .book-progress-info {
   color: var(--primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
-}
-  line-height: 1.35;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .book-category {
   display: flex;
   align-items: center;
+  margin-top: 4px;
 }
 
 .category-badge {
@@ -869,10 +866,10 @@
   right: 6px;
   top: 0;
   height: 2px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(139, 135, 255, 0.15) 20%, 
-    rgba(139, 135, 255, 0.15) 80%, 
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(139, 135, 255, 0.15) 20%,
+    rgba(139, 135, 255, 0.15) 80%,
     transparent 100%);
   border-radius: 2px;
 }
@@ -889,10 +886,10 @@
   right: -6px;
   bottom: -6px;
   height: 1px;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(139, 135, 255, 0.08) 15%, 
-    rgba(139, 135, 255, 0.08) 85%, 
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(139, 135, 255, 0.08) 15%,
+    rgba(139, 135, 255, 0.08) 85%,
     transparent 100%);
   pointer-events: none;
 }

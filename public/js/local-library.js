@@ -13,11 +13,6 @@ const IDB_NAME    = 'local-library';
 const IDB_VERSION = 1;
 const IDB_STORE   = 'entries';   // { id: name, name, handle | null, isFile: bool }
 
-const STATUS_OPTIONS = [
-  { value: 'unread', label: '未读' },
-  { value: 'read',   label: '已读' }
-];
-
 // ── 模块状态 ──────────────────────────────────────────────────
 let localBooks       = [];   // 规范化书目
 let rawEntries       = [];   // { name, handle|null, file|null, blobUrl|null }
@@ -26,9 +21,9 @@ let currentLocalActiveFile = null;
 let localControlsBound     = false;
 let localCurrentView = localStorage.getItem('local-library-view') || 'list';
 
-const localFilters = { query: '', author: '', status: '' };
+const localFilters = { query: '', author: '', format: '' };
 let csLocalAuthor = null;
-let csLocalStatus = null;
+let csLocalFormat = null;
 
 // ── IndexedDB ─────────────────────────────────────────────────
 
@@ -138,7 +133,7 @@ function normalizeText(v) {
 }
 
 function hasActiveLocalFilters() {
-  return Boolean(localFilters.query || localFilters.author || localFilters.status);
+  return Boolean(localFilters.query || localFilters.author || localFilters.format);
 }
 
 function matchesLocalFilters(book) {
@@ -146,7 +141,7 @@ function matchesLocalFilters(book) {
   const text = normalizeText(`${book.title} ${book.author}`);
   return (!q || text.includes(q))
     && (!localFilters.author || book.author === localFilters.author)
-    && (!localFilters.status || getBookReadingStatus(book.key) === localFilters.status);
+    && (!localFilters.format || book.format === localFilters.format);
 }
 
 // ── 目录扫描 ──────────────────────────────────────────────────
@@ -190,11 +185,10 @@ function renderLocalSkeletons(count = 4) {
 
 function populateLocalFilterOptions() {
   const authorCounts = new Map();
-  const statusCounts = new Map();
+  const formatCounts = new Map();
   localBooks.forEach((book) => {
     authorCounts.set(book.author, (authorCounts.get(book.author) || 0) + 1);
-    const s = getBookReadingStatus(book.key);
-    statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
+    formatCounts.set(book.format, (formatCounts.get(book.format) || 0) + 1);
   });
 
   const makeOpt = (value, label, count) => ({ value, label: `${label} (${count})` });
@@ -204,9 +198,11 @@ function populateLocalFilterOptions() {
       .sort((a, b) => a.localeCompare(b, 'zh-CN'))
       .map(a => makeOpt(a, a, authorCounts.get(a)))
   ];
-  const statusOpts = [
-    { value: '', label: '全部状态' },
-    ...STATUS_OPTIONS.map(s => makeOpt(s.value, s.label, statusCounts.get(s.value) || 0))
+  const formatOpts = [
+    { value: '', label: '全部格式' },
+    ...[...formatCounts.keys()]
+      .sort()
+      .map(f => makeOpt(f, f, formatCounts.get(f)))
   ];
 
   if (csLocalAuthor) {
@@ -214,15 +210,15 @@ function populateLocalFilterOptions() {
     csLocalAuthor.setOptions(authorOpts);
     if (!authorOpts.some(o => o.value === cur)) csLocalAuthor.setValue('', true);
   }
-  if (csLocalStatus) {
-    const cur = csLocalStatus.getValue();
-    csLocalStatus.setOptions(statusOpts);
-    if (!statusOpts.some(o => o.value === cur)) csLocalStatus.setValue('', true);
+  if (csLocalFormat) {
+    const cur = csLocalFormat.getValue();
+    csLocalFormat.setOptions(formatOpts);
+    if (!formatOpts.some(o => o.value === cur)) csLocalFormat.setValue('', true);
   }
 }
 
 function updateLocalFilterSummary() {
-  const active = [localFilters.query, localFilters.author, localFilters.status].filter(Boolean).length;
+  const active = [localFilters.query, localFilters.author, localFilters.format].filter(Boolean).length;
   const toggle = $('#local-filter-toggle');
   const count  = $('#local-filter-count');
   if (!toggle || !count) return;
@@ -676,9 +672,9 @@ function bindLocalControls() {
     );
   };
   csLocalAuthor = makeLocalSelect('local-cs-author-wrap', (v) => { localFilters.author = v; });
-  csLocalStatus = makeLocalSelect('local-cs-status-wrap', (v) => { localFilters.status = v; });
+  csLocalFormat = makeLocalSelect('local-cs-format-wrap', (v) => { localFilters.format = v; });
   csLocalAuthor?.setOptions([{ value: '', label: '全部作者' }]);
-  csLocalStatus?.setOptions([{ value: '', label: '全部状态' }]);
+  csLocalFormat?.setOptions([{ value: '', label: '全部格式' }]);
 
   $('#local-filter-toggle')?.addEventListener('click', () => {
     const toggle   = $('#local-filter-toggle');
@@ -691,11 +687,11 @@ function bindLocalControls() {
   $('#local-filter-reset')?.addEventListener('click', () => {
     localFilters.query = '';
     localFilters.author = '';
-    localFilters.status = '';
+    localFilters.format = '';
     const si = $('#local-book-search');
     if (si) si.value = '';
     csLocalAuthor?.setValue('', true);
-    csLocalStatus?.setValue('', true);
+    csLocalFormat?.setValue('', true);
     renderLocalList();
   });
 
