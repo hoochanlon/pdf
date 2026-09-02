@@ -4,19 +4,11 @@ import { $ } from './utils.js';
 import { state } from './state.js';
 
 // 初始化网站信息
+// 注：站点标题/副标题不再从 config.js 读取，改由 locales/*.json 里的 site.title / site.subtitle 提供，
+// 并通过 index.html 上的 data-i18n 属性自动跟随语言切换而更新，避免切换语言后标题仍然固定为中文
 function initSiteConfig() {
-  const { title, subtitle, favicon } = config.site;
-  
-  // 设置页面标题
-  document.title = title;
-  
-  // 更新 header 中的标题和副标题
-  const brandTitle = document.querySelector('.brand h1');
-  const brandSubtitle = document.querySelector('.brand p');
-  
-  if (brandTitle) brandTitle.textContent = title;
-  if (brandSubtitle) brandSubtitle.textContent = subtitle;
-  
+  const { favicon } = config.site;
+
   // 设置 favicon（如果配置了）
   if (favicon) {
     let link = document.querySelector("link[rel~='icon']");

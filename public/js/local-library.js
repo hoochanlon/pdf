@@ -7,7 +7,7 @@ import { $, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.js';
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearAllReadingStatus } from './reading.js';
 import { CustomSelect } from './select.js';
 import { getLocalCover, revokeLocalCover, revokeAllLocalCovers } from './local-covers.js';
-import { t } from './i18n.js';
+import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 const SUPPORTED_EXTENSIONS = /\.(pdf|epub|mobi|azw3?)$/i;
 const IDB_NAME    = 'local-library';
@@ -797,9 +797,13 @@ function bindLocalControls() {
   });
 
   // 切换语言后，重新生成筛选器选项文案（自定义下拉的选项是纯 JS 渲染，不会被 data-i18n 自动更新）
-  window.addEventListener('languagechange', () => {
-    populateLocalFilterOptions();
-    renderLocalList(); // 内部会重新调用 updateLocalFilterSummary()
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
+    try {
+      populateLocalFilterOptions();
+      renderLocalList(); // 内部会重新调用 updateLocalFilterSummary()
+    } catch (error) {
+      console.error('[local-library] 切换语言后刷新本地书库失败:', error);
+    }
   });
 }
 

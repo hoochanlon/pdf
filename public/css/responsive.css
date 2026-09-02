@@ -59,8 +59,9 @@
     width: 72px;
   }
 
-  .pdf-zoom-control .cs-wrap {
-    min-width: 68px;
+  /* 移动端屏幕太小，缩放模式选择器戈徒占位且使用很少，直接隐藏 */
+  .pdf-zoom-control {
+    display: none;
   }
 
   .pdf-sidebar {

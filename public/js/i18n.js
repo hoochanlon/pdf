@@ -4,6 +4,10 @@
 const translations = {};
 let currentLanguage = 'zh-CN'; // 默认语言
 
+// 自定义事件名：不能叫 'languagechange'，那是浏览器原生事件名（navigator.language 变化时触发），
+// 两者共用 window.addEventListener('languagechange', ...) 会被浏览器/系统语言设置变化意外触发。
+export const LANGUAGE_CHANGE_EVENT = 'app:languagechange';
+
 // 支持的语言列表
 export const supportedLanguages = [
   { code: 'zh-CN', name: '中文', icon: './icons/china.svg' },
@@ -111,8 +115,8 @@ export async function setLanguage(lang) {
   // 更新 HTML lang 属性
   document.documentElement.lang = lang;
   
-  // 触发语言变更事件
-  window.dispatchEvent(new CustomEvent('languagechange', { detail: { lang } }));
+  // 触发语言变更事件（自定义事件名，避免与浏览器原生 languagechange 事件冲突）
+  window.dispatchEvent(new CustomEvent(LANGUAGE_CHANGE_EVENT, { detail: { lang } }));
   
   return true;
 }
@@ -190,5 +194,5 @@ export function updateDOMTranslations() {
 
 // 监听语言变更事件，自动更新 DOM
 if (typeof window !== 'undefined') {
-  window.addEventListener('languagechange', updateDOMTranslations);
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, updateDOMTranslations);
 }

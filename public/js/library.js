@@ -4,7 +4,7 @@ import { $, bookListUrl, isEpub, isMobi, ICON_BOOK, ICON_PAPER } from './utils.j
 import { getBookReadingStatus, getBookReadingProgress, getBookReadingLocation, clearBookReadingStatus, clearOnlineReadingStatus } from './reading.js';
 import { getBookCover, preloadCovers } from './covers.js';
 import { CustomSelect } from './select.js';
-import { t } from './i18n.js';
+import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 const filters = {
   query: '',
@@ -224,16 +224,18 @@ function renderBookList() {
   if (!books.length) {
     updateEmptyState(t('reader.libraryEmpty'), t('reader.libraryEmptyHint'));
     if (emptyState) emptyState.style.display = 'flex';
+    requestAnimationFrame(() => list.classList.remove('is-loading'));
     return;
   }
   if (!visibleBooks.length) {
     updateEmptyState(t('reader.noMatch'), t('reader.noMatchHint'));
     if (emptyState) emptyState.style.display = 'flex';
+    requestAnimationFrame(() => list.classList.remove('is-loading'));
     return;
   }
 
-  // 有书籍显示时，更新empty-state为默认提示
-  if (!state.currentBook) {
+  // 有书籍显示且当前没有打开任何书时，更新 empty-state 为默认提示
+  if (!state.activeFile) {
     updateEmptyState(t('reader.selectBook'), '');
   }
 
@@ -522,9 +524,13 @@ function bindControls() {
   });
 
   // 切换语言后，重新生成筛选器选项文案、书籍卡片上的类型徽章、空状态文案（这些都是纯 JS 渲染，不会被 data-i18n 自动更新）
-  window.addEventListener('languagechange', () => {
-    populateFilterOptions();
-    renderBookList(); // 内部会重新调用 updateFilterSummary()
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
+    try {
+      populateFilterOptions();
+      renderBookList(); // 内部会重新调用 updateFilterSummary()
+    } catch (error) {
+      console.error('[library] 切换语言后刷新书架失败:', error);
+    }
   });
 }
 

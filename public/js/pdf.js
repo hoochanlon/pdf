@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened } from './reading.js';
 import { CustomSelect } from './select.js';
-import { t } from './i18n.js';
+import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 const PDF_VERSION = '3.11.174';
 const PDF_CORE_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_VERSION}/pdf.min.js`;
@@ -431,8 +431,12 @@ function bindPDFControls() {
   zoomSelect.setValue('page-width', true);
 
   // 切换语言后，重新生成缩放模式选项文案（自定义下拉的选项是纯 JS 渲染，不会被 data-i18n 自动更新）
-  window.addEventListener('languagechange', () => {
-    zoomSelect?.setOptions(getZoomOptions());
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
+    try {
+      zoomSelect?.setOptions(getZoomOptions());
+    } catch (error) {
+      console.error('[pdf] 切换语言后刷新缩放选项失败:', error);
+    }
   });
 }
 

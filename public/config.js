@@ -3,9 +3,9 @@
 
 export const config = {
   // 网站信息
+  // 标题/副标题现在由 public/locales/*.json 里的 site.title / site.subtitle 提供，会跟随语言切换自动更新。
+  // 若需要自定义品牌文案，请直接修改那三个文件里对应语言的 site.title / site.subtitle。
   site: {
-    title: '在线电子书预览',
-    subtitle: '在浏览器中预览你的电子书',
     favicon: null  // 可选：设置 favicon 路径
   },
 

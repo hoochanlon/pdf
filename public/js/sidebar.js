@@ -1,6 +1,6 @@
 // 侧边栏控制模块
 import { $, isMobile } from './utils.js';
-import { t } from './i18n.js';
+import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 const sidebar = $('#sidebar');
 const overlay = $('#overlay');
@@ -59,7 +59,11 @@ export function initSidebar() {
   syncSidebar();
 
   // 切换语言后刷新 aria-label
-  window.addEventListener('languagechange', () => {
-    setSidebarToggleState(toggleButton.dataset.sidebarState || 'expanded');
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
+    try {
+      setSidebarToggleState(toggleButton.dataset.sidebarState || 'expanded');
+    } catch (error) {
+      console.error('[sidebar] 切换语言后刷新失败:', error);
+    }
   });
 }
