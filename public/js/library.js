@@ -511,49 +511,30 @@ function bindControls() {
     updateViewUI();
     renderBookList();
   });
-  window.addEventListener('bookreadingchange', () => {
-    // 只更新当前打开书籍的进度显示，避免整个列表重新渲染
-    updateActiveBookProgress();
+  window.addEventListener('bookreadingchange', ({ detail }) => {
+    // 1. 刷新筛选器中阅读状态的计数（状态变了计数就变了）
+    populateFilterOptions();
+
+    // 2. 局部更新对应书籍条目的进度，避免全量重渲染
+    const file = detail?.file || state.activeFile;
+    if (file) updateBookProgress(file);
   });
 }
 
-// 只更新当前激活书籍的进度信息，避免全量刷新
-function updateActiveBookProgress() {
-  if (!state.activeFile) return;
-  
-  const activeItem = document.querySelector(`.book-item[data-file="${state.activeFile}"]`);
-  if (!activeItem) return;
-  
-  const book = books.find(b => b.file === state.activeFile);
-  if (!book) return;
-  
-  const progressInfo = formatReadingProgress(state.activeFile);
-  const metaEl = activeItem.querySelector('.book-meta');
-  
-  if (metaEl && currentView === 'list') {
-    // 列表视图：更新元信息文本
-    const readingStatus = getBookReadingStatus(state.activeFile);
-    const metaParts = [
-      book.author,
-      book.format,
-      languageLabel(book.language),
-      readingStatusLabel(readingStatus)
-    ];
-    if (progressInfo) {
-      metaParts.push(progressInfo);
-    }
-    metaEl.textContent = metaParts.join(' · ');
-  }
-  
-  // 网格视图：更新进度条
-  const progressBar = activeItem.querySelector('.book-progress-bar');
-  const progressText = activeItem.querySelector('.book-progress-text');
-  
+// 局部更新指定书籍条目的进度显示，避免全量重渲染
+function updateBookProgress(file) {
+  const item = document.querySelector(`.book-item[data-file="${CSS.escape(file)}"]`);
+  if (!item) return;
+
+  const progress = getBookReadingProgress(file);
+  const progressInfo = formatReadingProgress(file);
+
+  // 网格视图：更新进度条和文字
+  const progressBar = item.querySelector('.book-progress-bar');
   if (progressBar) {
-    const progress = getBookReadingProgress(state.activeFile);
     progressBar.style.width = `${progress * 100}%`;
   }
-  
+  const progressText = item.querySelector('.book-progress-text');
   if (progressText && progressInfo) {
     progressText.textContent = progressInfo;
   }
