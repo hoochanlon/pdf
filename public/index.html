@@ -253,6 +253,9 @@
         <div class="pdf-toolbar">
           <div class="pdf-toolbar-group">
             <button class="reader-btn" id="pdf-sidebar-toggle" type="button" aria-label="显示目录" aria-controls="pdf-sidebar" aria-expanded="false">☰</button>
+            <span class="reader-format-icon" aria-label="PDF 格式">
+              <img src="./icons/pdf.svg" alt="" aria-hidden="true" width="16" height="16">
+            </span>
           </div>
           <div class="pdf-page-jump">
             <label class="sr-only" for="pdf-page-input">跳转到 PDF 页码</label>
@@ -261,11 +264,13 @@
             <output id="pdf-page-total">—</output>
           </div>
           <div class="pdf-heading">
-            <span class="reader-type">PDF</span>
             <strong id="pdf-title">—</strong>
           </div>
           <div class="pdf-toolbar-group pdf-toolbar-tools">
             <span class="pdf-progress-value" id="pdf-progress-value">0%</span>
+            <span class="reader-source-icon" id="reader-source-icon-pdf" hidden aria-label="书库来源">
+              <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-pdf">
+            </span>
             <button class="reader-btn" id="pdf-rotate-clockwise" type="button" title="旋转" aria-label="旋转">↻</button>
             <a class="reader-btn reader-download-btn" id="pdf-download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
@@ -305,13 +310,18 @@
         <div class="epub-toolbar">
           <div class="epub-nav-group">
             <button class="reader-btn" id="epub-toc" type="button" aria-label="显示目录" aria-controls="epub-sidebar" aria-expanded="false">☰</button>
+            <span class="reader-format-icon" aria-label="EPUB 格式">
+              <img src="./icons/epub.svg" alt="" aria-hidden="true" width="16" height="16">
+            </span>
           </div>
           <div class="epub-heading">
-            <span class="reader-type">EPUB</span>
             <strong id="epub-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
             <span class="epub-progress-value" id="epub-progress-value">0%</span>
+            <span class="reader-source-icon" id="reader-source-icon-epub" hidden aria-label="书库来源">
+              <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-epub">
+            </span>
             <a class="reader-btn reader-download-btn" id="epub-download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
             </a>
@@ -343,13 +353,18 @@
         <div class="epub-toolbar">
           <div class="epub-nav-group">
             <button class="reader-btn" id="mobi-toc" type="button" aria-label="显示目录" aria-controls="mobi-sidebar" aria-expanded="false">☰</button>
+            <span class="reader-format-icon" aria-label="MOBI 格式">
+              <img src="./icons/mobi.svg" alt="" aria-hidden="true" width="16" height="16">
+            </span>
           </div>
           <div class="epub-heading">
-            <span class="reader-type">MOBI</span>
             <strong id="mobi-title">正在加载…</strong>
           </div>
           <div class="epub-tools">
             <span class="epub-progress-value" id="mobi-progress-value">0%</span>
+            <span class="reader-source-icon" id="reader-source-icon-mobi" hidden aria-label="书库来源">
+              <img src="" alt="" aria-hidden="true" width="14" height="14" id="reader-source-img-mobi">
+            </span>
             <a class="reader-btn reader-download-btn" id="mobi-download" aria-label="下载" download>
               <img src="./icons/download.svg" alt="" aria-hidden="true" width="16" height="16">
             </a>

@@ -166,9 +166,9 @@
 
 .pdf-heading {
   display: flex;
+  align-items: center;
   min-width: 0;
   flex: 1;
-  align-items: center;
   justify-content: center;
   gap: 9px;
 }

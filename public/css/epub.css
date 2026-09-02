@@ -41,10 +41,21 @@
 }
 
 .epub-heading {
+  display: flex;
+  align-items: center;
   min-width: 0;
   flex: 1;
   justify-content: center;
   gap: 9px;
+}
+
+.epub-heading strong {
+  max-width: min(34vw, 520px);
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .epub-location {
@@ -54,15 +65,52 @@
 }
 
 .reader-type {
-  padding: 3px 5px;
-  color: #ddd9ff;
-  background: rgba(113, 107, 242, 0.18);
-  border: 1px solid rgba(198, 193, 255, 0.32);
-  border-radius: 4px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.7px;
+  display: none; /* 文字格式标签已用图标替代，保留选择器避免其他引用报错 */
 }
+
+/* 格式图标（左侧，紧跟目录按钮） */
+.reader-format-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  opacity: 0.85;
+}
+
+.reader-format-icon img {
+  display: block;
+}
+
+/* 来源图标（右侧工具组内，在进度百分比旁） */
+.reader-source-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  opacity: 0.75;
+  transition: opacity 160ms ease;
+}
+
+.reader-source-icon[hidden] {
+  display: none;
+}
+
+.reader-source-icon--online {
+  color: #a5f3c4;
+}
+
+.reader-source-icon--local {
+  color: #fed7aa;
+}
+
+/* 旧的 badge 样式保留定义但不显示，避免 JS 引用报错 */
+.reader-source-badge { display: none; }
+.reader-source-badge--online { display: none; }
+.reader-source-badge--local { display: none; }
+.reader-source-badge[hidden] { display: none; }
 
 .epub-heading strong {
   max-width: min(34vw, 520px);

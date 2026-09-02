@@ -646,6 +646,8 @@ function bindLocalControls() {
     panelOnline.hidden = false;
     panelLocal.hidden  = true;
     localStorage.setItem('activeLibraryTab', 'online');
+    // 若当前打开的是本地书，切回在线书库时清空阅读区
+    window.dispatchEvent(new CustomEvent('librarytabchange', { detail: { tab: 'online' } }));
   });
   tabLocal.addEventListener('click', () => {
     tabOnline.setAttribute('aria-selected', 'false');
@@ -653,6 +655,8 @@ function bindLocalControls() {
     panelOnline.hidden = true;
     panelLocal.hidden  = false;
     localStorage.setItem('activeLibraryTab', 'local');
+    // 若当前打开的是在线书，切到本地书库时清空阅读区
+    window.dispatchEvent(new CustomEvent('librarytabchange', { detail: { tab: 'local' } }));
   });
 
   // 搜索

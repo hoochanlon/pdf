@@ -70,6 +70,28 @@ function showReader(mode) {
   mobiReader.classList.toggle('show', mode === 'mobi');
 }
 
+// 上次各 tab 打开的书，用于切换 tab 时恢复
+const lastOpenedByTab = { online: null, local: null };
+
+function updateSourceBadge(filename) {
+  const isLocal = filename?.startsWith('__local__/');
+  // 在线：地球仪 SVG；本地：显示器 SVG（与 tab 图标一致）
+  const onlineSvg = `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+  const localSvg  = `<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+
+  ['pdf', 'epub', 'mobi'].forEach(type => {
+    const icon = $(`#reader-source-icon-${type}`);
+    if (!icon) return;
+    if (!filename) {
+      icon.hidden = true;
+      return;
+    }
+    icon.hidden = false;
+    icon.className = `reader-source-icon reader-source-icon--${isLocal ? 'local' : 'online'}`;
+    icon.innerHTML = isLocal ? localSvg : onlineSvg;
+  });
+}
+
 function openBook(filename, item) {
   document.querySelectorAll('.book-item').forEach((element) => element.classList.remove('active'));
   item.classList.add('active');
@@ -78,6 +100,8 @@ function openBook(filename, item) {
   $('#empty-state').style.display = 'none';
   clearReader();
   state.activeFile = filename;
+  lastOpenedByTab.online = { filename, item };
+  updateSourceBadge(filename);
   const url = fileUrl(filename);
 
   if (isMobi(filename)) {
@@ -105,6 +129,8 @@ function openLocalBook({ url, filename, displayName, file }) {
   $('#empty-state').style.display = 'none';
   clearReader();
   state.activeFile = filename;
+  lastOpenedByTab.local = { url, filename, displayName, file };
+  updateSourceBadge(filename);
 
   // 把显示名注入 metadata，供阅读器工具栏显示正确书名
   const base = displayName.replace(/\.[^.]+$/, '');
@@ -239,6 +265,30 @@ document.addEventListener('click', (event) => {
   if (mobiSidebar.classList.contains('show')
     && !event.target.closest('#mobi-sidebar, #mobi-toc')) {
     toggleMobiTOC(false);
+  }
+});
+
+// 切换书库 tab 时，若当前打开的书不属于该书库则清空阅读区；切回时恢复上次阅读
+window.addEventListener('librarytabchange', ({ detail }) => {
+  const { tab } = detail;
+  const file = state.activeFile;
+  const isLocal = file?.startsWith('__local__/');
+
+  // 当前书不属于目标 tab，清空
+  if (file && ((tab === 'local' && !isLocal) || (tab === 'online' && isLocal))) {
+    clearReader();
+    $('#empty-state').style.display = 'flex';
+    updateSourceBadge(null);
+  }
+
+  // 切回目标 tab 时，若该 tab 上次有打开的书则恢复
+  if (tab === 'online' && lastOpenedByTab.online) {
+    const { filename, item } = lastOpenedByTab.online;
+    // item 可能已被重渲染而失效，尝试从 DOM 重新查找
+    const liveItem = document.querySelector(`.book-item[data-file="${CSS.escape(filename)}"]`) || item;
+    if (liveItem) openBook(filename, liveItem);
+  } else if (tab === 'local' && lastOpenedByTab.local) {
+    openLocalBook(lastOpenedByTab.local);
   }
 });
 

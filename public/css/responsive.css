@@ -127,7 +127,7 @@
     flex-basis: 32px;
   }
 
-  .reader-btn-secondary, .reader-type, .epub-location {
+  .reader-btn-secondary, .reader-type, .epub-location, .reader-badges {
     display: none;
   }
 
