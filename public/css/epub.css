@@ -14,11 +14,11 @@
 }
 
 .epub-toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   min-height: 58px;
   flex: 0 0 58px;
-  justify-content: space-between;
   gap: 12px;
   padding: 8px 14px;
   color: #fff;
@@ -36,8 +36,13 @@
   flex: 0 0 auto;
 }
 
+.epub-nav-group {
+  justify-self: start;
+}
+
 .epub-tools {
   gap: 8px;
+  justify-self: end;
 }
 
 .epub-heading {
@@ -152,10 +157,6 @@
 }
 
 @container (max-width: 620px) {
-  .epub-heading {
-    display: none;
-  }
-
   .epub-mode-control select {
     max-width: 80px;
   }

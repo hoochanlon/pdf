@@ -64,7 +64,8 @@
 
 /* MOBI 使用与 EPUB 相同的工具栏样式，但可以独立调整 */
 .mobi-reader .epub-toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   min-height: 58px;
   flex: 0 0 58px;
@@ -75,6 +76,14 @@
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.mobi-reader .epub-nav-group {
+  justify-self: start;
+}
+
+.mobi-reader .epub-tools {
+  justify-self: end;
 }
 
 .mobi-reader .epub-heading {
