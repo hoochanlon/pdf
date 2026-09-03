@@ -101,6 +101,11 @@
   letter-spacing: -0.01em;
 }
 
+.mobi-reader .reader-format-icon img {
+  width: 24px;
+  height: 24px;
+}
+
 /* MOBI 状态提示 - 复用 EPUB 状态卡片样式 */
 .mobi-reader .epub-status {
   display: flex;

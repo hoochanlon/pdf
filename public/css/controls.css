@@ -141,10 +141,10 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 140px;
-  background: #1e293b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  border: 1px solid var(--sidebar-border);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   z-index: 100;
   overflow: hidden;
 }
@@ -159,7 +159,7 @@
   gap: 10px;
   width: 100%;
   padding: 10px 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -170,12 +170,12 @@
 
 .language-option:hover,
 .language-option:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--item-hover);
 }
 
 .language-option[aria-selected="true"] {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: #fff;
+  color: var(--primary);
 }
 
 .language-option .language-flag {
