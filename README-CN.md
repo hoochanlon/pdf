@@ -10,6 +10,9 @@
 
 ![](https://cdn.jsdelivr.net/gh/hoochanlon/reader@main/screenshots/3.png)
 
+> [!note]
+> https://purge.jsdelivr.net 仓库或路径调整后缓存未刷新，刷新用
+
 ## 运行方式
 
 ### 1. 放置电子书文件
