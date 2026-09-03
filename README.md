@@ -1,74 +1,76 @@
-# 在线电子书阅读器
+# Online Ebook Reader
 
-一个基于 Node.js + Express 的本地在线阅读器，支持 PDF、EPUB、MOBI、AZW3 格式，同时也适合本地临时文件阅读。
+A local web-based ebook reader built with Node.js and Express. It supports PDF, EPUB, MOBI, and AZW3 files.
 
-## 截图
+## Features
 
-![](./screenshots/1.png)
+- Read PDF, EPUB, MOBI, and AZW3 books in a web browser
+- Automatically scan books from `public/uploads`
+- Organize books by directory structure and generate library categories
+- Display book metadata and reading progress
+- Support local deployment on a computer, NAS, home server, or private cloud
 
-![](./screenshots/2.png)
+## Screenshot
 
-## 运行方式
+Read books online or use the reader to open files hosted locally.
 
-### 1. 放置电子书文件
+![Reader screenshot](./screenshots/1.png)
 
-将书籍文件放入项目中的 `public/uploads` 目录中，按目录层级自动识别分类，例如：
+## Getting Started
+
+### 1. Add ebook files
+
+Place your ebook files inside the project's `public/uploads` directory. The server recursively scans this directory and uses its folder structure to determine book types and categories.
+
+For example:
 
 ```text
 public/uploads/
-├── 图书/
-│   ├── 小说/
-│   │   └── 示例小说.epub
-│   └── 历史/
-│       └── 中国史.pdf
-├── 论文/
-│   └── 经济学/
-│       └── 论文示例.pdf
+├── Books/
+│   ├── Fiction/
+│   │   └── Example Novel.epub
+│   └── History/
+│       └── Chinese History.pdf
+├── Papers/
+│   └── Economics/
+│       └── Example Paper.pdf
 ```
 
-服务端会递归扫描 `public/uploads` 下的文件，自动生成 `/books.json` 和书架列表。
+The server automatically generates `/books.json` and uses it to populate the library.
 
-> [!note]
->
-> 为了获得更好的自动识别效果，建议按以下格式命名：
->
-> ```text
-> 《书名》-作者.pdf
-> 《书名》-作者.epub
-> 《书名》-作者.mobi
-> ```
->
-> 系统会自动提取标题、作者和分类信息。
+For better automatic metadata detection, use a filename format such as:
 
-### 2. 启动
+```text
+Book Title - Author.pdf
+Book Title - Author.epub
+Book Title - Author.mobi
+```
 
-一键启动
+The reader can extract the title, author, and category information from the filename and directory structure.
+
+### 2. Install dependencies and start the server
 
 ```bash
 npm install && npm start
 ```
 
-终结进程
+Then open the following address in your browser:
 
-```bash
-sudo kill $(sudo lsof -t -i:3000) 2>/dev/null
+```text
+http://localhost:3000
 ```
 
-## 生产/部署建议
 
-- 适合本地部署到 NAS、家庭服务器或私有云环境
-- 适合静态托管场景，但需要确保 `public/uploads` 中的文件能被 Web 服务器访问
-- 若要部署到远程主机，请确认目录权限和文件路径的一致性
+## Deployment Notes
 
+- The project is suitable for local deployment on a NAS, home server, or private cloud.
+- When using a static hosting service, make sure files under `public/uploads` are available to the web server.
+- For remote deployment, verify directory permissions and ensure that the configured file paths remain consistent.
+- Do not expose personal or copyrighted ebook files to the public internet without proper authorization.
 
-## 参考项目
+## References
 
-- PDF Gear：https://www.pdfgear.com
-- Calibre：https://calibre.online
-- Flowoss：https://www.flowoss.com
-- Foliate.js：https://github.com/johnfactotum/foliate-js
-
-## 下一步计划
-
-* [ ] 优化 Safari 阅读 EPUB 体验。
-
+- [Foliate.js](https://github.com/johnfactotum/foliate-js)
+- [Calibre](https://calibre.online)
+- [Flowoss](https://www.flowoss.com)
+- [PDF Gear](https://www.pdfgear.com)
