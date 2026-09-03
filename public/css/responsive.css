@@ -124,7 +124,7 @@
 
   .pdf-mobile-drawer strong {
     overflow: hidden;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -140,6 +140,12 @@
     grid-column: 1 / -1;
     cursor: ew-resize;
     touch-action: none;
+  }
+
+  .pdf-heading strong,
+  .epub-heading strong,
+  .mobi-reader #mobi-title {
+    font-size: 13px;
   }
 
   .pdf-page-jump {
@@ -184,7 +190,6 @@
 
   .epub-heading strong {
     max-width: 34vw;
-    font-size: 11px;
   }
 
   .epub-mode-control select {
