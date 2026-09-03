@@ -16,7 +16,9 @@ A local web-based ebook reader built with Node.js and Express. It supports PDF, 
 
 Read books online or use the reader to open files hosted locally.
 
-![Reader screenshot](./screenshots/1.png)
+![](./screenshots/1.png)
+
+![](./screenshots/3.png)
 
 ## Getting Started
 
