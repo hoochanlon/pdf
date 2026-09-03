@@ -25,6 +25,7 @@ export const state = {
   epubLocation: null,
   epubCurrentPage: 0,
   epubTotalPages: 0,
+  epubProgressOverride: null,
   epubCurrentChapter: -1,
   epubLocationsReady: false,
   epubChapters: [],

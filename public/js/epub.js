@@ -110,7 +110,7 @@ function installEPUBStyles(contents) {
     const frameDocument = contents.document;
     const frame = frameWindow.frameElement;
     if (!frame) return;
-    installEPUBNavigation(frameDocument);
+    installEPUBNavigation(frameDocument, frame, frameWindow);
     frame.style.touchAction = paginated ? 'none' : '';
     frame.style.userSelect = paginated ? 'none' : '';
     frame.style.webkitUserSelect = paginated ? 'none' : '';
@@ -123,7 +123,6 @@ function installEPUBStyles(contents) {
       const height = Math.max(
         root?.scrollHeight || 0,
         root?.offsetHeight || 0,
-        body?.scrollHeight || 0,
         body?.offsetHeight || 0
       );
       frame.style.height = `${Math.max(height, 1)}px`;
@@ -233,8 +232,10 @@ function requestEPUBNav(direction) {
 }
 
 // 豆瓣式交互：分页模式下，iframe 内支持左右键、点击左右分区、横滑三种翻页方式。
-function installEPUBNavigation(frameDocument) {
-  const frameWindow = frameDocument.defaultView;
+// frameDocument 内的监听优先（Chrome），同时 frameElement 上挂一份宿主层兜底监听（Safari
+// 对 iframe 内 Pointer/Keyboard 事件交付不稳定），两者共用 requestEPUBNav 节流避免重复翻页。
+function installEPUBNavigation(frameDocument, iframe = null, iframeWindow = null) {
+  const frameWindow = frameDocument.defaultView || iframeWindow;
   let gesture = null;
   let suppressClickUntil = 0;
 
@@ -278,8 +279,8 @@ function installEPUBNavigation(frameDocument) {
 
   frameDocument.addEventListener('contextmenu', (event) => event.preventDefault());
 
-  // iframe 内键盘事件不会冒泡到主文档，需要单独接管。
-  frameDocument.addEventListener('keydown', (event) => {
+  // iframe 内键盘事件不会冒泡到主文档，需要同时监听 document 和 window。
+  const handleFrameKeydown = (event) => {
     if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
     const navKeys = {
       ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
@@ -293,13 +294,16 @@ function installEPUBNavigation(frameDocument) {
     if (!direction) return;
     event.preventDefault();
     requestEPUBNav(direction);
-  });
+  };
+  frameDocument.addEventListener('keydown', handleFrameKeydown);
+  frameWindow.addEventListener('keydown', handleFrameKeydown);
 
   if ('PointerEvent' in frameWindow) {
+    let lastPointerEventAt = 0;
     const reset = () => { gesture = null; };
     frameDocument.addEventListener('pointerdown', (event) => {
-      if (event.pointerType !== 'mouse') return;
-      if (state.epubMode !== 'paginated' || event.isPrimary === false
+      if (event.pointerType === 'mouse') lastPointerEventAt = Date.now();
+      if (event.pointerType !== 'mouse' || state.epubMode !== 'paginated' || event.isPrimary === false
         || (event.pointerType === 'mouse' && event.button !== 0)
         || isInteractiveTarget(event.target)) return;
       gesture = {
@@ -327,6 +331,7 @@ function installEPUBNavigation(frameDocument) {
       }
     }, { passive: false });
     frameDocument.addEventListener('pointerup', (event) => {
+      if (event.pointerType === 'mouse') lastPointerEventAt = Date.now();
       if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
       const current = gesture;
       reset();
@@ -340,8 +345,70 @@ function installEPUBNavigation(frameDocument) {
       if (!current.dragged && isNavClick(event)) navigateByClickX(event.clientX);
     }, { passive: false });
     frameDocument.addEventListener('pointercancel', () => {
+      lastPointerEventAt = Date.now();
       cancelPageDrag($('#epub-container'));
       reset();
+    }, { passive: true });
+
+    // Safari 某些版本的 iframe 鼠标 Pointer Events 不稳定，保留传统鼠标事件兜底。
+    let mouseStart = null;
+    frameDocument.addEventListener('mousedown', (event) => {
+      if (Date.now() - lastPointerEventAt < 500 || event.button !== 0
+        || state.epubMode !== 'paginated' || isInteractiveTarget(event.target)) return;
+      mouseStart = { x: event.clientX, y: event.clientY, target: event.target };
+    });
+    frameDocument.addEventListener('mouseup', (event) => {
+      if (!mouseStart || Date.now() - lastPointerEventAt < 500) return;
+      const start = mouseStart;
+      mouseStart = null;
+      const distanceX = event.clientX - start.x;
+      const distanceY = event.clientY - start.y;
+      if (isHorizontalSwipe(distanceX, distanceY)) {
+        navigateBySwipe(distanceX, distanceY, event, start.target);
+      } else if (isNavClick(event)) {
+        navigateByClickX(event.clientX);
+      }
+    });
+
+    // Safari 可能同时支持 Pointer Events 和 Touch Events，触摸翻页使用 touch 兜底。
+    let touchStart = null;
+    frameDocument.addEventListener('touchstart', (event) => {
+      if (state.epubMode !== 'paginated' || event.touches.length !== 1
+        || isInteractiveTarget(event.target)) return;
+      const touch = event.touches[0];
+      touchStart = { x: touch.clientX, y: touch.clientY, target: event.target };
+    }, { passive: true });
+    frameDocument.addEventListener('touchend', (event) => {
+      if (!touchStart || event.changedTouches.length !== 1) {
+        touchStart = null;
+        return;
+      }
+      const touch = event.changedTouches[0];
+      const start = touchStart;
+      touchStart = null;
+      const distanceX = touch.clientX - start.x;
+      const distanceY = touch.clientY - start.y;
+      if (isHorizontalSwipe(distanceX, distanceY)) {
+        navigateBySwipe(distanceX, distanceY, event, start.target);
+      } else if (isNavClick(event)) {
+        navigateByClickX(touch.clientX);
+      }
+    }, { passive: false });
+    frameDocument.addEventListener('touchmove', (event) => {
+      if (!touchStart || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const distanceX = touch.clientX - touchStart.x;
+      const distanceY = touch.clientY - touchStart.y;
+      if (!isHorizontalSwipe(distanceX, distanceY)) return;
+      if (!isPageTurning($('#epub-container'))) beginPageDrag(
+        $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
+      );
+      updatePageDrag($('#epub-container'), distanceX);
+      if (event.cancelable) event.preventDefault();
+    }, { passive: false });
+    frameDocument.addEventListener('touchcancel', () => {
+      cancelPageDrag($('#epub-container'));
+      touchStart = null;
     }, { passive: true });
   } else {
     let touchStart = null;
@@ -418,6 +485,147 @@ function installEPUBNavigation(frameDocument) {
       wheelResetTimer = setTimeout(() => { wheelDeltaX = 0; }, 300);
     }
   }, { passive: false });
+
+  // ── 宿主层兜底（Safari）────────────────────────────────────
+  // 事件挂在 iframe 元素与主文档上，即使 Safari 不把 iframe 内事件交付给
+  // 内部 document 的监听器也能触达。坐标以 iframe 局部为准做点击分区。
+  // 仅在 Safari 下启用，避免与 Chrome 的 iframe 内监听重复翻页。
+  const isSafari = /^((?!chrome|crios|android|edg).)*safari/i.test(navigator.userAgent)
+    || /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
+  if (!iframe || !isSafari) return;
+  const localX = (event) => {
+    const rect = iframe.getBoundingClientRect();
+    return event.clientX - rect.left;
+  };
+  const localY = (event) => {
+    const rect = iframe.getBoundingClientRect();
+    return event.clientY - rect.top;
+  };
+
+  let hostPointer = null;
+  const hostPointerDown = (event) => {
+    if (event.button !== 0 || state.epubMode !== 'paginated') return;
+    hostPointer = {
+      x: localX(event), y: localY(event),
+      id: event.pointerId, target: event.target, dragged: false
+    };
+    // Safari 里 iframe 被点击后会独占键盘焦点，导致主文档的全局按键（app.js）
+    // 收不到方向键。把焦点拉回宿主容器，保证后续方向键翻页可用。
+    keepHostFocus();
+  };
+  const keepHostFocus = () => {
+    const container = $('#epub-container');
+    if (!container) return;
+    if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
+    try { iframe.blur(); } catch (_) { /* 忽略 */ }
+    if (document.activeElement !== container) container.focus({ preventScroll: true });
+  };
+  const hostPointerMove = (event) => {
+    if (!hostPointer || (event.pointerId !== undefined && event.pointerId !== hostPointer.id)) return;
+    const dx = localX(event) - hostPointer.x;
+    const dy = localY(event) - hostPointer.y;
+    if (isHorizontalSwipe(dx, dy)) {
+      hostPointer.dragged = true;
+      if (!isPageTurning($('#epub-container'))) beginPageDrag(
+        $('#epub-container'), dx < 0 ? 1 : -1, iframeWindow?.innerWidth || iframe.clientWidth
+      );
+      updatePageDrag($('#epub-container'), dx);
+      if (event.cancelable) event.preventDefault();
+    }
+  };
+  const hostPointerUp = (event) => {
+    if (!hostPointer || (event.pointerId !== undefined && event.pointerId !== hostPointer.id)) return;
+    const cur = hostPointer;
+    hostPointer = null;
+    const dx = localX(event) - cur.x;
+    const dy = localY(event) - cur.y;
+    if (isHorizontalSwipe(dx, dy)) {
+      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      return;
+    }
+    if (!cur.dragged) navigateByClickX(localX(event));
+    keepHostFocus();
+  };
+  const hostPointerCancel = () => {
+    hostPointer = null;
+    cancelPageDrag($('#epub-container'));
+  };
+  // 用“是否真的收到过 pointerdown”来判断，而不是 PointerEvent 是否存在：
+  // Safari 即便支持 PointerEvent，也可能不把 iframe 内事件交付出来。
+  let sawHostPointerDown = false;
+  let lastHostPointerDownAt = 0;
+  if ('PointerEvent' in window) {
+    iframe.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse') lastHostPointerDownAt = Date.now();
+      sawHostPointerDown = true;
+      hostPointerDown(event);
+    }, { passive: true });
+    iframe.addEventListener('pointermove', hostPointerMove, { passive: false });
+    iframe.addEventListener('pointerup', hostPointerUp, { passive: false });
+    iframe.addEventListener('pointercancel', hostPointerCancel, { passive: true });
+  }
+
+  let hostMouse = null;
+  iframe.addEventListener('mousedown', (event) => {
+    if (event.button !== 0 || state.epubMode !== 'paginated') return;
+    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
+    hostMouse = { x: localX(event), y: localY(event), target: event.target };
+  });
+  iframe.addEventListener('mouseup', (event) => {
+    if (!hostMouse || (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500)) return;
+    const cur = hostMouse;
+    hostMouse = null;
+    const dx = localX(event) - cur.x;
+    const dy = localY(event) - cur.y;
+    if (isHorizontalSwipe(dx, dy)) {
+      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      return;
+    }
+    navigateByClickX(localX(event));
+    keepHostFocus();
+  });
+
+  let hostTouch = null;
+  iframe.addEventListener('touchstart', (event) => {
+    if (state.epubMode !== 'paginated' || event.touches.length !== 1) return;
+    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
+    const t = event.touches[0];
+    hostTouch = { x: localX(t), y: localY(t), target: event.target };
+  }, { passive: true });
+  iframe.addEventListener('touchmove', (event) => {
+    if (!hostTouch || event.touches.length !== 1) return;
+    const t = event.touches[0];
+    const dx = localX(t) - hostTouch.x;
+    const dy = localY(t) - hostTouch.y;
+    if (!isHorizontalSwipe(dx, dy)) return;
+    if (!isPageTurning($('#epub-container'))) beginPageDrag(
+      $('#epub-container'), dx < 0 ? 1 : -1, iframeWindow?.innerWidth || iframe.clientWidth
+    );
+    updatePageDrag($('#epub-container'), dx);
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+  iframe.addEventListener('touchend', (event) => {
+    if (!hostTouch || event.changedTouches.length !== 1) {
+      hostTouch = null;
+      return;
+    }
+    const t = event.changedTouches[0];
+    const cur = hostTouch;
+    hostTouch = null;
+    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
+    const dx = localX(t) - cur.x;
+    const dy = localY(t) - cur.y;
+    if (isHorizontalSwipe(dx, dy)) {
+      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      return;
+    }
+    navigateByClickX(localX(t));
+    keepHostFocus();
+  }, { passive: false });
+  iframe.addEventListener('touchcancel', () => {
+    hostTouch = null;
+    cancelPageDrag($('#epub-container'));
+  }, { passive: true });
 }
 
 function clearEPUBProgressTracking() {
@@ -435,6 +643,7 @@ function setEPUBProgress(progress) {
   const percent = Math.round(safeProgress * 100);
   $('#epub-progress-bar').style.width = `${safeProgress * 100}%`;
   $('#epub-progress-percent').textContent = `${percent}%`;
+  $('#epub-progress-wrap').setAttribute('aria-valuenow', String(percent));
   const valueDisplay = $('#epub-progress-value');
   if (valueDisplay) valueDisplay.textContent = `${percent}%`;
 }
@@ -444,50 +653,97 @@ function setupEPUBProgressBar() {
   const bar = $('#epub-progress-bar');
   if (!wrap || !bar) return;
 
-  let isDragging = false;
+  if (wrap.dataset.bound === 'true') return;
+  wrap.dataset.bound = 'true';
 
-  function getProgressFromEvent(event) {
+  let isDragging = false;
+  let dragPointerId = null;
+  let dragFraction = 0;
+
+  function getProgressFromPoint(clientX) {
     const rect = wrap.getBoundingClientRect();
-    const x = (event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX) - rect.left;
+    const x = clientX - rect.left;
     return Math.max(0, Math.min(1, x / rect.width));
   }
 
-  function handleProgressChange(fraction) {
+  async function handleProgressChange(fraction) {
     if (!state.rendition || !state.book?.locations) return;
     const location = state.book.locations.cfiFromPercentage(fraction);
-    void state.rendition.display(location);
+    state.epubProgressOverride = fraction;
+    try {
+      await state.rendition.display(location);
+    } catch (error) {
+      console.warn('EPUB 进度定位失败:', error);
+    } finally {
+      const current = state.rendition?.currentLocation?.();
+      const loc = current?.then ? await current : current;
+      if (state.epubProgressOverride !== fraction) return;
+      state.epubProgressOverride = null;
+      const start = loc?.start;
+      if (start) {
+        const cfi = cfiValue(start.cfi);
+        if (cfi) state.epubLocation = cfi;
+        const safeProgress = Math.max(0, Math.min(1, fraction));
+        setEPUBProgress(safeProgress);
+        updateBookProgress(
+          state.activeFile,
+          safeProgress,
+          cfi ? { kind: 'epub-cfi', value: cfi } : undefined
+        );
+      }
+    }
+  }
+
+  function previewProgress(clientX) {
+    dragFraction = getProgressFromPoint(clientX);
+    setEPUBProgress(dragFraction);
   }
 
   function onStart(event) {
-    if (event.button !== undefined && event.button !== 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
     isDragging = true;
+    dragPointerId = event.pointerId;
     wrap.classList.add('dragging');
-    const fraction = getProgressFromEvent(event);
-    setEPUBProgress(fraction);
-    handleProgressChange(fraction);
+    wrap.setPointerCapture?.(event.pointerId);
+    previewProgress(event.clientX);
     event.preventDefault();
   }
 
   function onMove(event) {
-    if (!isDragging) return;
-    const fraction = getProgressFromEvent(event);
-    setEPUBProgress(fraction);
-    handleProgressChange(fraction);
+    if (!isDragging || event.pointerId !== dragPointerId) return;
+    previewProgress(event.clientX);
     event.preventDefault();
   }
 
-  function onEnd() {
+  function onEnd(event) {
     if (!isDragging) return;
+    if (event && event.pointerId !== dragPointerId) return;
+    if (event) previewProgress(event.clientX);
     isDragging = false;
+    const pointerId = dragPointerId;
+    dragPointerId = null;
+    wrap.releasePointerCapture?.(pointerId);
     wrap.classList.remove('dragging');
+    handleProgressChange(dragFraction);
   }
 
-  wrap.addEventListener('mousedown', onStart);
-  wrap.addEventListener('touchstart', onStart, { passive: false });
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('touchmove', onMove, { passive: false });
-  document.addEventListener('mouseup', onEnd);
-  document.addEventListener('touchend', onEnd);
+  wrap.addEventListener('pointerdown', onStart, { passive: false });
+  wrap.addEventListener('pointermove', onMove, { passive: false });
+  wrap.addEventListener('pointerup', onEnd, { passive: false });
+  wrap.addEventListener('pointercancel', onEnd, { passive: false });
+  wrap.addEventListener('keydown', (event) => {
+    const current = Number($('#epub-progress-wrap').getAttribute('aria-valuenow') || 0) / 100;
+    const step = event.shiftKey ? 0.01 : 0.001;
+    let next = current;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next -= step;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next += step;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = 1;
+    else return;
+    event.preventDefault();
+    setEPUBProgress(next);
+    handleProgressChange(next);
+  });
 }
 
 function updateSavedEPUBProgress(location, progress) {
@@ -522,6 +778,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   state.epubLocation = null;
   state.epubCurrentPage = 0;
   state.epubTotalPages = 0;
+  state.epubProgressOverride = null;
   state.epubLocationsReady = false;
   state.epubChapters = [];
   state.epubRenderToken += 1;
@@ -775,7 +1032,11 @@ function updateEPUBLocation(location) {
   const reachedEnd = location.atEnd === true || location.end?.atEnd === true;
   if (typeof progress === 'number') {
     progress = reachedEnd ? 1 : Math.max(0, Math.min(1, progress));
-    updateSavedEPUBProgress(location, progress);
+    if (state.epubProgressOverride === null) {
+      updateSavedEPUBProgress(location, progress);
+    } else {
+      setEPUBProgress(state.epubProgressOverride);
+    }
   }
 
   if (state.epubLocationsReady && cfi) {
@@ -839,6 +1100,7 @@ export function resetEPUBState() {
   state.epubLocation = null;
   state.epubCurrentPage = 0;
   state.epubTotalPages = 0;
+  state.epubProgressOverride = null;
   state.epubLocationsReady = false;
   state.epubCurrentChapter = -1;
   state.epubChapters = [];

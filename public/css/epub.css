@@ -363,6 +363,8 @@
   display: flex;
   align-items: center;
   padding: 0 8px;
+  touch-action: none !important;
+  user-select: none !important;
   transition: height 200ms ease;
 }
 

@@ -134,6 +134,11 @@ function setMobiProgress(progress) {
   $('#mobi-progress-percent').textContent = `${percent}%`;
   const valueDisplay = $('#mobi-progress-value');
   if (valueDisplay) valueDisplay.textContent = `${percent}%`;
+  const progressWrap = $('#mobi-progress-wrap');
+  if (progressWrap) {
+    progressWrap.dataset.progress = String(safeProgress);
+    progressWrap.setAttribute('aria-valuenow', String(percent));
+  }
 }
 
 function setupMobiProgressBar() {
@@ -158,6 +163,7 @@ function setupMobiProgressBar() {
     if (event.button !== undefined && event.button !== 0) return;
     isDragging = true;
     wrap.classList.add('dragging');
+    wrap.focus({ preventScroll: true });
     const fraction = getProgressFromEvent(event);
     setMobiProgress(fraction);
     handleProgressChange(fraction);
@@ -177,6 +183,22 @@ function setupMobiProgressBar() {
     isDragging = false;
     wrap.classList.remove('dragging');
   }
+
+  wrap.addEventListener('keydown', (event) => {
+    const current = Number(wrap.dataset.progress || 0);
+    const step = event.shiftKey ? 0.01 : 0.001;
+    let next = current;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next -= step;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next += step;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = 1;
+    else return;
+
+    event.preventDefault();
+    const fraction = Math.max(0, Math.min(1, next));
+    setMobiProgress(fraction);
+    void handleProgressChange(fraction);
+  });
 
   wrap.addEventListener('mousedown', onStart);
   wrap.addEventListener('touchstart', onStart, { passive: false });
@@ -409,22 +431,25 @@ function setupMobiDragListener(view) {
   const container = $('#mobi-container');
   container._mobiDragCleanup?.();
   let gesture = null;
+  let lastPointerEventAt = 0;
 
   const onPointerDown = (event) => {
-    if (event.pointerType !== 'mouse' || event.isPrimary === false
-      || event.button !== undefined && event.button !== 0
+    lastPointerEventAt = Date.now();
+    if (event.isPrimary === false
+      || event.pointerType === 'mouse' && event.button !== 0
       || event.target?.closest?.('a, button, input, select, textarea')) return;
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, target: event.target };
   };
   const onPointerMove = (event) => {
-    if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
+    if (!gesture || event.pointerId !== gesture.id) return;
     const distanceX = event.clientX - gesture.x;
     const distanceY = event.clientY - gesture.y;
     if (Math.abs(distanceX) < 24 || Math.abs(distanceX) <= Math.abs(distanceY) * 1.25) return;
     if (event.cancelable) event.preventDefault();
   };
   const onPointerUp = (event) => {
-    if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
+    lastPointerEventAt = Date.now();
+    if (!gesture || event.pointerId !== gesture.id) return;
     const current = gesture;
     gesture = null;
     const distanceX = event.clientX - current.x;
@@ -441,11 +466,33 @@ function setupMobiDragListener(view) {
   iframeDocument.addEventListener('pointermove', onPointerMove, { passive: false });
   iframeDocument.addEventListener('pointerup', onPointerUp, { passive: false });
   iframeDocument.addEventListener('pointercancel', onPointerCancel, { passive: true });
+
+  // Safari 某些版本的 iframe 鼠标 Pointer Events 不稳定，保留传统鼠标事件兜底。
+  let mouseStart = null;
+  const onMouseDown = (event) => {
+    if (Date.now() - lastPointerEventAt < 500 || event.button !== 0
+      || event.target?.closest?.('a, button, input, select, textarea')) return;
+    mouseStart = { x: event.clientX, y: event.clientY };
+  };
+  const onMouseUp = (event) => {
+    if (!mouseStart || Date.now() - lastPointerEventAt < 500) return;
+    const start = mouseStart;
+    mouseStart = null;
+    const distanceX = event.clientX - start.x;
+    const distanceY = event.clientY - start.y;
+    if (Math.abs(distanceX) > 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25) {
+      requestMobiNav(view, distanceX < 0 ? 1 : -1);
+    }
+  };
+  iframeDocument.addEventListener('mousedown', onMouseDown);
+  iframeDocument.addEventListener('mouseup', onMouseUp);
   const cleanup = () => {
     iframeDocument.removeEventListener('pointerdown', onPointerDown);
     iframeDocument.removeEventListener('pointermove', onPointerMove);
     iframeDocument.removeEventListener('pointerup', onPointerUp);
     iframeDocument.removeEventListener('pointercancel', onPointerCancel);
+    iframeDocument.removeEventListener('mousedown', onMouseDown);
+    iframeDocument.removeEventListener('mouseup', onMouseUp);
   };
   container._mobiDragCleanup = cleanup;
   return cleanup;

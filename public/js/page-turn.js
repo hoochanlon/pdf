@@ -11,6 +11,7 @@
 
 const ANIMATION_DURATION = 460;
 const SETTLE_DELAY = 40;      // 导航完成后等待渲染稳定的时间
+const CAPTURE_TIMEOUT = 1200;
 const EFFECTS = ['slide', 'fade', 'cover', 'curl'];
 const STORAGE_KEY = 'reader-page-turn-effect';
 const DEFAULT_EFFECT = 'slide';
@@ -100,8 +101,18 @@ async function capturePage(container) {
     pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     quality: 1,
   }).then((dataUrl) => ({ dataUrl, width: target.width, height: target.height }));
-  const result = await (captureQueue = captureQueue.then(run, run));
-  return result;
+  const capture = captureQueue = captureQueue.then(run, run);
+  let timeoutId;
+  try {
+    return await Promise.race([
+      capture,
+      new Promise((resolve) => {
+        timeoutId = window.setTimeout(() => resolve(null), CAPTURE_TIMEOUT);
+      })
+    ]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 // ── DOM 工具 ────────────────────────────────────────────────────
@@ -191,16 +202,28 @@ async function finalizeTurn(container, sheet, navigate) {
 
 // 让真实书页在动画开始时已就位：先截图当前页，铺上 sheet，再执行导航。
 async function runTurn(container, sheet, direction, navigate) {
-  const ok = await prepareTurn(container, sheet);
-  if (!ok) {
-    // 无法截图（例如还未初始化完成）：退回直接导航，不遮挡。
-    Promise.resolve(navigate()).catch((error) => {
-      console.warn('[page-turn] 页面导航失败:', error);
-    });
-    window.setTimeout(() => removeSheet(container, true), 200);
-    return;
+  try {
+    const ok = await prepareTurn(container, sheet);
+    if (!ok) {
+      // 无法截图（例如还未初始化完成）：退回直接导航，不遮挡。
+      try {
+        await Promise.resolve(navigate());
+      } finally {
+        removeSheet(container, true, sheet);
+      }
+      return;
+    }
+    await finalizeTurn(container, sheet, navigate);
+  } catch (error) {
+    // Safari 截图或过渡失败时必须释放 activeContainers，否则阅读器会永久拒绝翻页。
+    console.warn('[page-turn] 翻页动画失败，退回直接导航:', error);
+    removeSheet(container, true, sheet);
+    try {
+      await Promise.resolve(navigate());
+    } catch (navigationError) {
+      console.warn('[page-turn] 页面导航失败:', navigationError);
+    }
   }
-  await finalizeTurn(container, sheet, navigate);
 }
 
 // ── 效果状态控制 ────────────────────────────────────────────────
