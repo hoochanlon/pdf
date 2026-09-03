@@ -315,6 +315,7 @@ export function turnPage(container, direction, navigate) {
   activeContainers.add(container);
   const sheet = ensureSheet(container, direction);
   sheet.classList.remove('is-animating', 'is-cancelled', 'is-hidden');
+  sheet.classList.add('is-pending');
   applyEffectStart(sheet, direction);
   void runTurn(container, sheet, direction, navigate);
   return true;
@@ -324,6 +325,7 @@ export function beginPageDrag(container, direction, width) {
   if (!container || activeContainers.has(container) || width <= 0) return false;
   const sheet = ensureSheet(container, direction);
   sheet.classList.remove('is-animating', 'is-cancelled', 'is-hidden');
+  sheet.classList.add('is-pending');
   applyEffectStart(sheet, direction);
   dragStates.set(container, { direction, width, sheet });
   void startDrag(container, sheet, direction);
