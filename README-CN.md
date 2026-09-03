@@ -6,7 +6,7 @@
 
 在线阅读，同时也适合本地临时文件阅读。
 
-![](./screenshots/1.png)
+![](https://cdn.jsdelivr.net/gh/hoochanlon/pdf@main/screenshots/1.png)
 
 ## 运行方式
 
