@@ -1,5 +1,7 @@
 # Online Ebook Reader
 
+[中文](./README-CN.md)
+
 A local web-based ebook reader built with Node.js and Express. It supports PDF, EPUB, MOBI, and AZW3 files.
 
 ## Features
