@@ -116,18 +116,23 @@
   transform: rotateY(var(--turn-angle));
   transform-origin: right center;
   transform-style: preserve-3d;
+  backface-visibility: hidden;
   box-shadow: -20px 0 32px rgba(15, 23, 42, 0.22);
   filter: drop-shadow(-14px 0 14px rgba(15, 23, 42, 0.2));
 }
 .page-turn-sheet[data-effect="flip"][data-direction="next"] {
-  right: 0;
-  transform-origin: right center;
-}
-.page-turn-sheet[data-effect="flip"][data-direction="prev"] {
   left: 0;
   transform-origin: left center;
+}
+.page-turn-sheet[data-effect="flip"][data-direction="prev"] {
+  right: 0;
+  transform-origin: right center;
   box-shadow: 20px 0 32px rgba(15, 23, 42, 0.22);
   filter: drop-shadow(14px 0 14px rgba(15, 23, 42, 0.2));
+}
+
+.page-turn-sheet[data-effect="flip"][data-direction="next"] {
+  transform-origin: left center;
 }
 /* 翻页时页缘的纸张弯曲质感 */
 .page-turn-sheet[data-effect="flip"]::after {
@@ -203,6 +208,11 @@
 .page-turn-sheet[data-effect="curl"][data-direction="prev"]::after {
   left: 0;
   background: linear-gradient(270deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.06) 40%, transparent);
+}
+
+.page-turn-sheet[data-effect="fade"].is-animating {
+  transition-duration: 620ms;
+  transition-timing-function: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* ── 减弱动画偏好 ────────────────────────────────────────────── */

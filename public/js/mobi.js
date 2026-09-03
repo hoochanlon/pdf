@@ -661,6 +661,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     let currentWheelCleanup = null;
     let currentKeyboardCleanup = null;
     let currentDragCleanup = null;
+    let currentContentClickCleanup = null;
 
     view.addEventListener('load', (e) => {
       if (requestId !== state.requestId || mobiView !== view) return;
@@ -668,6 +669,14 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
 
       const contentDocument = e.detail?.doc;
       if (contentDocument) {
+        currentContentClickCleanup?.();
+        const closeTOCOnContentClick = () => {
+          if ($('#mobi-sidebar').classList.contains('show')) toggleMobiTOC(false);
+        };
+        contentDocument.addEventListener('click', closeTOCOnContentClick);
+        currentContentClickCleanup = () => {
+          contentDocument.removeEventListener('click', closeTOCOnContentClick);
+        };
         contentDocument.addEventListener('contextmenu', (event) => event.preventDefault());
         Object.assign(contentDocument.documentElement.style, {
           userSelect: 'none',

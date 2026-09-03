@@ -14,7 +14,7 @@ import {
   resetEPUBState,
   toggleTOC
 } from './js/epub.js?v=15';
-import { renderMOBI, destroyMOBI, resetMobiState, toggleMobiTOC, mobiNext, mobiPrev } from './js/mobi.js?v=22';
+import { renderMOBI, destroyMOBI, resetMobiState, toggleMobiTOC, mobiNext, mobiPrev } from './js/mobi.js?v=23';
 import { initSidebar, closeSidebar } from './js/sidebar.js';
 import { loadBookList } from './js/library.js';
 import { getBookReadingLocation } from './js/reading.js';
@@ -272,7 +272,7 @@ document.addEventListener('click', (event) => {
   }
   const mobiSidebar = $('#mobi-sidebar');
   if (mobiSidebar.classList.contains('show')
-    && !event.target.closest('#mobi-sidebar, #mobi-toc')) {
+    && !event.target.closest('#mobi-toc, #mobi-toc-list button')) {
     toggleMobiTOC(false);
   }
 });

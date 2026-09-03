@@ -11,9 +11,9 @@
 
 const ANIMATION_DURATION = 460;
 const SETTLE_DELAY = 40;      // 导航完成后等待渲染稳定的时间
-const EFFECTS = ['slide', 'fade', 'flip', 'cover', 'curl'];
+const EFFECTS = ['slide', 'fade', 'cover', 'curl'];
 const STORAGE_KEY = 'reader-page-turn-effect';
-const DEFAULT_EFFECT = 'flip';
+const DEFAULT_EFFECT = 'slide';
 
 let currentEffect = loadEffect();
 
@@ -210,7 +210,7 @@ const sign = (direction) => (direction < 0 ? 1 : -1);
 // 离场起点（完全覆盖在真实新页上）
 function applyEffectStart(sheet, direction) {
   const s = sign(direction);
-  switch (currentEffect) {
+  switch (sheet.dataset.effect || currentEffect) {
     case 'slide':
     case 'cover':
       sheet.style.setProperty('--turn-x', '0%');
@@ -221,7 +221,6 @@ function applyEffectStart(sheet, direction) {
       break;
     case 'flip':
       sheet.style.setProperty('--turn-angle', '0deg');
-      sheet.style.setProperty('--turn-width', '100%');
       sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'curl':
@@ -233,7 +232,7 @@ function applyEffectStart(sheet, direction) {
 
 function applyEffectEnd(sheet) {
   const s = sign(sheet.dataset.direction === 'prev' ? -1 : 1);
-  switch (currentEffect) {
+  switch (sheet.dataset.effect || currentEffect) {
     case 'slide':
     case 'cover':
       sheet.style.setProperty('--turn-x', `${s * 100}%`);
@@ -243,8 +242,7 @@ function applyEffectEnd(sheet) {
       sheet.style.setProperty('--turn-opacity', '0');
       break;
     case 'flip':
-      sheet.style.setProperty('--turn-width', '0%');
-      sheet.style.setProperty('--turn-angle', `${s * -18}deg`);
+      sheet.style.setProperty('--turn-angle', `${s * 180}deg`);
       sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'curl':
@@ -256,7 +254,7 @@ function applyEffectEnd(sheet) {
 
 function applyEffectCancel(sheet, direction) {
   const s = sign(direction);
-  switch (currentEffect) {
+  switch (sheet.dataset.effect || currentEffect) {
     case 'slide':
     case 'cover':
       sheet.style.setProperty('--turn-x', '0%');
@@ -287,7 +285,7 @@ async function startDrag(container, sheet, direction) {
 function updateDrag(sheet, direction, progress) {
   const s = sign(direction);
   const p = Math.max(0, Math.min(1, progress));
-  switch (currentEffect) {
+  switch (sheet.dataset.effect || currentEffect) {
     case 'slide':
     case 'cover':
       // 旧页随手指滑向该方向，露出下方真实新页
@@ -298,7 +296,7 @@ function updateDrag(sheet, direction, progress) {
       sheet.style.setProperty('--turn-opacity', String(1 - p));
       break;
     case 'flip':
-      sheet.style.setProperty('--turn-angle', `${s * -p * 18}deg`);
+      sheet.style.setProperty('--turn-angle', `${s * p * 180}deg`);
       sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'curl':

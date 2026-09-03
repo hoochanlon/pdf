@@ -1,6 +1,6 @@
 # 在线电子书阅读器
 
-一个基于 Node.js + Express 的本地在线阅读器，支持 PDF、EPUB、MOBI 格式，同时也适合本地临时文件阅读。
+一个基于 Node.js + Express 的本地在线阅读器，支持 PDF、EPUB、MOBI、AZW3 格式，同时也适合本地临时文件阅读。
 
 ## 运行方式
 
