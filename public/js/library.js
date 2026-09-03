@@ -17,6 +17,7 @@ const filters = {
 let books = [];
 let openBookHandler = null;
 let controlsBound = false;
+let isBookListLoading = false;
 let currentView = localStorage.getItem('library-view') || 'list'; // 'list' 或 'grid'
 
 // 筛选器的 CustomSelect 实例
@@ -186,6 +187,22 @@ function updateEmptyState(title, message = '') {
   const emptyStateMessage = $('#empty-state-message');
   if (emptyStateTitle) emptyStateTitle.textContent = title;
   if (emptyStateMessage) emptyStateMessage.textContent = message;
+}
+
+function refreshEmptyStateForLanguage() {
+  if (isBookListLoading && !books.length) {
+    updateEmptyState(t('reader.loading'), '');
+    return;
+  }
+
+  if (!books.length) {
+    updateEmptyState(t('reader.libraryEmpty'), t('reader.libraryEmptyHint'));
+    return;
+  }
+
+  if (!state.activeFile) {
+    updateEmptyState(t('reader.selectBook'), '');
+  }
 }
 
 function renderSkeletons(count = 5) {
@@ -526,6 +543,7 @@ function bindControls() {
   // 切换语言后，重新生成筛选器选项文案、书籍卡片上的类型徽章、空状态文案（这些都是纯 JS 渲染，不会被 data-i18n 自动更新）
   window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
     try {
+      refreshEmptyStateForLanguage();
       populateFilterOptions();
       renderBookList(); // 内部会重新调用 updateFilterSummary()
     } catch (error) {
@@ -600,6 +618,7 @@ function updateViewUI() {
 
 export async function loadBookList(onOpenBook) {
   console.log('[loadBookList] 开始执行');
+  isBookListLoading = true;
   updateEmptyState(t('reader.loading'), '');
   openBookHandler = onOpenBook;
   bindControls();
@@ -644,9 +663,13 @@ export async function loadBookList(onOpenBook) {
     console.log('[loadBookList] 封面预加载完成，开始渲染');
     renderBookList();
     console.log('[loadBookList] 完成');
+    isBookListLoading = false;
+    renderBookList();
+    refreshEmptyStateForLanguage();
   } catch (error) {
     console.error('加载书籍列表失败:', error);
     books = [];
+    isBookListLoading = false;
     updateBookCount(0);
     $('#sidebar-count').textContent = '0';
     $('#book-list').replaceChildren();
