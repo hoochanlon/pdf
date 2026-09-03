@@ -94,6 +94,54 @@
     padding: 6px 10px;
   }
 
+  .pdf-mobile-drawer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    position: absolute;
+    top: 52px;
+    right: 10px;
+    left: 10px;
+    z-index: 4;
+    padding: 10px 12px 9px;
+    color: #fff;
+    background: rgba(42, 42, 42, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-top: 0;
+    border-radius: 0 0 7px 7px;
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .pdf-reader.mobile-drawer-open .pdf-mobile-drawer {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .pdf-mobile-drawer strong {
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pdf-mobile-progress-value {
+    color: #ddd9ff;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pdf-mobile-progress-track {
+    grid-column: 1 / -1;
+    cursor: ew-resize;
+    touch-action: none;
+  }
+
   .pdf-page-jump {
     gap: 4px;
     font-size: 10px;

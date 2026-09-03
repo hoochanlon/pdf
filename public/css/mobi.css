@@ -47,6 +47,9 @@
   overscroll-behavior: contain;
   /* foliate paginator handles horizontal touch scrolling itself. */
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mobi-container foliate-view {
@@ -54,6 +57,9 @@
   height: 100%;
   display: block;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* MOBI 使用与 EPUB 相同的工具栏样式，但可以独立调整 */

@@ -329,7 +329,7 @@
 
 .epub-reader.mode-paginated .epub-container {
   overflow: hidden;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .epub-reader.mode-paginated .epub-container > div {

@@ -96,6 +96,10 @@
   z-index: 2;
 }
 
+.pdf-mobile-drawer {
+  display: none;
+}
+
 
 .pdf-progress-value, .epub-progress-value {
   min-width: 38px;
@@ -116,6 +120,20 @@
   width: 0;
   height: 100%;
   background: linear-gradient(90deg, #716bf2, #4f46e5);
+  transition: width 180ms ease;
+}
+
+.pdf-mobile-progress-track {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.pdf-mobile-progress-bar {
+  width: 0;
+  height: 100%;
+  background: #a7a4ff;
   transition: width 180ms ease;
 }
 
@@ -412,6 +430,9 @@
   overflow: auto;
   background: #525659;
   touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: thin;

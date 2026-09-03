@@ -92,7 +92,7 @@ const SCROLL_CONTENT_RULES = {
 const PAGINATED_CONTENT_RULES = {
   body: {
     ...CONTENT_TYPOGRAPHY,
-    'touch-action': 'pan-y !important',
+    'touch-action': 'none !important',
     'user-select': 'none !important',
     '-webkit-user-select': 'none !important',
     '-webkit-touch-callout': 'none !important'
@@ -110,7 +110,7 @@ function installEPUBStyles(contents) {
     const frame = frameWindow.frameElement;
     if (!frame) return;
     installEPUBNavigation(frameDocument);
-    frame.style.touchAction = paginated ? 'pan-y' : '';
+    frame.style.touchAction = paginated ? 'none' : '';
     frame.style.userSelect = paginated ? 'none' : '';
     frame.style.webkitUserSelect = paginated ? 'none' : '';
     if (paginated) return;
@@ -195,6 +195,8 @@ function installEPUBNavigation(frameDocument) {
     suppressClickUntil = 0;
   };
 
+  frameDocument.addEventListener('contextmenu', (event) => event.preventDefault());
+
   // iframe 内键盘事件不会冒泡到主文档，需要单独接管。
   frameDocument.addEventListener('keydown', (event) => {
     if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
@@ -208,6 +210,7 @@ function installEPUBNavigation(frameDocument) {
   if ('PointerEvent' in frameWindow) {
     const reset = () => { gesture = null; };
     frameDocument.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse') return;
       if (state.epubMode !== 'paginated' || event.isPrimary === false
         || (event.pointerType === 'mouse' && event.button !== 0)
         || isInteractiveTarget(event.target)) return;
@@ -218,10 +221,9 @@ function installEPUBNavigation(frameDocument) {
         target: event.target,
         dragged: false
       };
-      event.target?.setPointerCapture?.(event.pointerId);
     }, { passive: true });
     frameDocument.addEventListener('pointermove', (event) => {
-      if (!gesture || event.pointerId !== gesture.id) return;
+      if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
       const distanceX = event.clientX - gesture.x;
       const distanceY = event.clientY - gesture.y;
       if (isHorizontalSwipe(distanceX, distanceY)) {
@@ -233,7 +235,7 @@ function installEPUBNavigation(frameDocument) {
       }
     }, { passive: false });
     frameDocument.addEventListener('pointerup', (event) => {
-      if (!gesture || event.pointerId !== gesture.id) return;
+      if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
       const current = gesture;
       reset();
       const distanceX = event.clientX - current.x;

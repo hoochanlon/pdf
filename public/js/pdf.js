@@ -14,6 +14,8 @@ const PDF_WORKER_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDF_VERS
 let controlsBound = false;
 let pdfLibrariesPromise = null;
 let zoomSelect = null; // CustomSelect 实例
+let pdfLongPressTimer = null;
+let suppressPDFClick = false;
 
 function loadScript(url, globalName) {
   if (window[globalName]) return Promise.resolve();
@@ -94,11 +96,11 @@ function updatePDFReadingUI(currentPage, totalPages, progress) {
   $('#pdf-page-input').max = hasDocument ? String(totalPages) : '';
   $('#pdf-progress-bar').style.width = `${safeProgress * 100}%`;
   $('#pdf-progress-value').textContent = `${Math.round(safeProgress * 100)}%`;
-  
+
   const filename = state.pdfFilename || '';
   const metadata = state.booksMetadata?.[filename];
   let title = '—';
-  
+
   if (metadata?.title) {
     title = metadata.title;
   } else if (filename) {
@@ -106,8 +108,16 @@ function updatePDFReadingUI(currentPage, totalPages, progress) {
     const nameWithoutExt = basename.replace(/\.pdf$/i, '');
     title = nameWithoutExt.split('-')[0].trim();
   }
-  
+
   $('#pdf-title').textContent = title;
+  const mobileTitle = $('#pdf-mobile-title');
+  if (mobileTitle) mobileTitle.textContent = title;
+  const mobileProgress = $('#pdf-mobile-progress-value');
+  if (mobileProgress) mobileProgress.textContent = `${Math.round(safeProgress * 100)}%`;
+  const mobileProgressTrack = $('#pdf-mobile-progress-track');
+  if (mobileProgressTrack) mobileProgressTrack.setAttribute('aria-valuenow', String(Math.round(safeProgress * 100)));
+  const mobileProgressBar = $('#pdf-mobile-progress-bar');
+  if (mobileProgressBar) mobileProgressBar.style.width = `${safeProgress * 100}%`;
 }
 
 function updatePDFDownloadLink(url, filename) {
@@ -373,35 +383,35 @@ function bindPDFControls() {
       updatePDFReadingUI(state.pdfCurrentPage, state.pdfTotalPages, getPDFProgress());
     }
   });
-  
+
   const zoomStep = 0.1;
   const minZoom = 0.5;
   const maxZoom = 4;
-  
+
   const zoomIn = () => {
     if (!state.pdfViewer) return;
     state.pdfViewer.currentScale = Math.min(maxZoom, state.pdfViewer.currentScale + zoomStep);
   };
-  
+
   const zoomOut = () => {
     if (!state.pdfViewer) return;
     state.pdfViewer.currentScale = Math.max(minZoom, state.pdfViewer.currentScale - zoomStep);
   };
-  
+
   // 确保 PDF 侧边栏滚动完全独立，不受其他区域影响
   $('#pdf-sidebar').addEventListener('wheel', (event) => {
     event.stopPropagation();
   }, { passive: true });
-  
+
   $('#pdf-sidebar').addEventListener('touchmove', (event) => {
     event.stopPropagation();
   }, { passive: true });
-  
+
   // Ctrl/Cmd + 滚轮缩放（支持触控板双指捏合手势）
   // 只在主内容区域生效，不影响侧边栏滚动
   $('#pdf-viewer-container').addEventListener('wheel', (event) => {
     if (!state.pdfViewer) return;
-    
+
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
       const delta = -event.deltaY;
@@ -412,7 +422,86 @@ function bindPDFControls() {
       }
     }
   }, { passive: false });
-  
+
+  const viewerContainer = $('#pdf-viewer-container');
+  const reader = $('#pdf-reader');
+  const drawer = $('#pdf-mobile-drawer');
+  const closeDrawer = () => {
+    reader.classList.remove('mobile-drawer-open');
+    drawer.setAttribute('aria-hidden', 'true');
+  };
+  let touchStart = null;
+  const cancelLongPress = () => {
+    if (pdfLongPressTimer) window.clearTimeout(pdfLongPressTimer);
+    pdfLongPressTimer = null;
+  };
+  viewerContainer.addEventListener('touchstart', (event) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    touchStart = { x: touch.clientX, y: touch.clientY };
+    cancelLongPress();
+    pdfLongPressTimer = window.setTimeout(() => {
+      if (!touchStart) return;
+      reader.classList.add('mobile-drawer-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      suppressPDFClick = true;
+      pdfLongPressTimer = null;
+    }, 500);
+  }, { passive: true });
+  viewerContainer.addEventListener('touchmove', (event) => {
+    if (!touchStart || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    if (Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 10) {
+      touchStart = null;
+      cancelLongPress();
+    }
+  }, { passive: true });
+  viewerContainer.addEventListener('touchend', () => {
+    touchStart = null;
+    cancelLongPress();
+  }, { passive: true });
+  viewerContainer.addEventListener('touchcancel', () => {
+    touchStart = null;
+    cancelLongPress();
+  }, { passive: true });
+  viewerContainer.addEventListener('contextmenu', (event) => event.preventDefault());
+  viewerContainer.addEventListener('click', () => {
+    if (suppressPDFClick) {
+      suppressPDFClick = false;
+      return;
+    }
+    closeDrawer();
+  });
+
+  const progressTrack = $('#pdf-mobile-progress-track');
+  let draggingProgress = false;
+  const updateProgressFromPointer = (event) => {
+    if (!state.pdfViewer) return;
+    const rect = progressTrack.getBoundingClientRect();
+    const fraction = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const container = $('#pdf-viewer-container');
+    container.scrollTop = fraction * Math.max(0, container.scrollHeight - container.clientHeight);
+    updatePDFPosition(state.pdfViewer.currentPageNumber);
+  };
+  progressTrack.addEventListener('pointerdown', (event) => {
+    draggingProgress = true;
+    progressTrack.setPointerCapture?.(event.pointerId);
+    updateProgressFromPointer(event);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  progressTrack.addEventListener('pointermove', (event) => {
+    if (!draggingProgress) return;
+    updateProgressFromPointer(event);
+    event.preventDefault();
+  });
+  const endProgressDrag = () => { draggingProgress = false; };
+  progressTrack.addEventListener('pointerup', endProgressDrag);
+  progressTrack.addEventListener('pointercancel', endProgressDrag);
+  drawer.addEventListener('click', (event) => {
+    if (event.target !== progressTrack && !progressTrack.contains(event.target)) closeDrawer();
+  });
+
   $('#pdf-rotate-clockwise').addEventListener('click', () => rotatePDF(90));
 
   // 初始化缩放自定义下拉
