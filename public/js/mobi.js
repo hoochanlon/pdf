@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 import { t } from './i18n.js';
+import { beginPageDrag, cancelPageDrag, endPageDrag, isPageTurning, turnPage, updatePageDrag } from './page-turn.js';
 
 let mobiView = null;
 let foliateLoaded = false;
@@ -156,11 +157,18 @@ export function toggleMobiTOC(force) {
 }
 
 export function mobiNext() {
-  if (mobiView) mobiView.goRight?.();
+  if (mobiView) turnPage($('#mobi-container'), 1, () => mobiView.goRight?.());
 }
 
 export function mobiPrev() {
-  if (mobiView) mobiView.goLeft?.();
+  if (mobiView) turnPage($('#mobi-container'), -1, () => mobiView.goLeft?.());
+}
+
+function navigateMobi(view, direction) {
+  const container = $('#mobi-container');
+  return turnPage(container, direction, () => (
+    direction < 0 ? view.goLeft?.() : view.goRight?.()
+  ));
 }
 
 // 全局翻页冷却标志（跨所有 wheel 监听器共享）
@@ -225,10 +233,10 @@ function setupMobiWheelListener(view) {
       // 正值（向左滑）：下一页，负值（向右滑）：上一页
       if (wheelDeltaX > 0) {
         console.log('[MOBI] 向左滑动 -> 下一页');
-        view.goRight?.();
+        navigateMobi(view, 1);
       } else {
         console.log('[MOBI] 向右滑动 -> 上一页');
-        view.goLeft?.();
+        navigateMobi(view, -1);
       }
 
       // 立即重置累积值
@@ -276,12 +284,61 @@ function setupMobiKeyboardListener(view) {
     const direction = navKeys[event.key];
     if (!direction) return;
     event.preventDefault();
-    if (direction < 0) view.goLeft?.();
-    else view.goRight?.();
+    navigateMobi(view, direction);
   };
 
   iframeDoc.addEventListener('keydown', keyHandler);
   return () => iframeDoc.removeEventListener('keydown', keyHandler);
+}
+
+function setupMobiDragListener(view) {
+  const contents = view.renderer?.getContents?.();
+  const iframeDocument = contents?.[0]?.doc;
+  if (!iframeDocument) return null;
+  const container = $('#mobi-container');
+  let gesture = null;
+
+  const onPointerDown = (event) => {
+    if (event.isPrimary === false || event.button !== undefined && event.button !== 0
+      || event.target?.closest?.('a, button, input, select, textarea')) return;
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, target: event.target };
+  };
+  const onPointerMove = (event) => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const distanceX = event.clientX - gesture.x;
+    const distanceY = event.clientY - gesture.y;
+    if (Math.abs(distanceX) < 24 || Math.abs(distanceX) <= Math.abs(distanceY) * 1.25) return;
+    if (!isPageTurning(container)) beginPageDrag(container, distanceX < 0 ? 1 : -1, iframeDocument.defaultView.innerWidth);
+    updatePageDrag(container, distanceX);
+    if (event.cancelable) event.preventDefault();
+  };
+  const onPointerUp = (event) => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const current = gesture;
+    gesture = null;
+    const distanceX = event.clientX - current.x;
+    const distanceY = event.clientY - current.y;
+    if (Math.abs(distanceX) > 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25) {
+      endPageDrag(container, distanceX, () => navigateMobi(view, distanceX < 0 ? 1 : -1), 0.15);
+    } else {
+      cancelPageDrag(container);
+    }
+  };
+  const onPointerCancel = () => {
+    gesture = null;
+    cancelPageDrag(container);
+  };
+
+  iframeDocument.addEventListener('pointerdown', onPointerDown, { passive: true });
+  iframeDocument.addEventListener('pointermove', onPointerMove, { passive: false });
+  iframeDocument.addEventListener('pointerup', onPointerUp, { passive: false });
+  iframeDocument.addEventListener('pointercancel', onPointerCancel, { passive: true });
+  return () => {
+    iframeDocument.removeEventListener('pointerdown', onPointerDown);
+    iframeDocument.removeEventListener('pointermove', onPointerMove);
+    iframeDocument.removeEventListener('pointerup', onPointerUp);
+    iframeDocument.removeEventListener('pointercancel', onPointerCancel);
+  };
 }
 
 function setupMobiInteractions(view) {
@@ -332,11 +389,11 @@ function setupMobiInteractions(view) {
 
     // 左边 1/3 区域：上一页
     if (x < width / 3) {
-      view.goLeft?.();
+      navigateMobi(view, -1);
     }
     // 右边 1/3 区域：下一页
     else if (x > width * 2 / 3) {
-      view.goRight?.();
+      navigateMobi(view, 1);
     }
   };
 
@@ -385,10 +442,10 @@ function setupMobiInteractions(view) {
         // 正值（向左滑）：下一页，负值（向右滑）：上一页
         if (wheelDeltaX > 0) {
           console.log('[MOBI] 向左滑动 -> 下一页');
-          view.goRight?.();
+          navigateMobi(view, 1);
         } else {
           console.log('[MOBI] 向右滑动 -> 上一页');
-          view.goLeft?.();
+          navigateMobi(view, -1);
         }
 
         // 重置累积值
@@ -480,12 +537,15 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     await mobiView.open(url);
     console.log('[MOBI] 步骤 4 完成: open() 返回成功');
 
+    mobiView.renderer?.setAttribute('animated', '');
+
     // 按照 reader.js 的顺序，在 open() 之后添加事件监听器
     console.log('[MOBI] 步骤 5: 添加事件监听器');
 
     // 存储 iframe 监听器清理函数，用于每次 load 后重新绑定（iframe 会重建）
     let currentWheelCleanup = null;
     let currentKeyboardCleanup = null;
+    let currentDragCleanup = null;
 
     mobiView.addEventListener('load', (e) => {
       console.log('[MOBI] ✓ load 事件触发:', e.detail);
@@ -516,6 +576,10 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
         currentKeyboardCleanup();
       }
       currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
+      if (currentDragCleanup) {
+        currentDragCleanup();
+      }
+      currentDragCleanup = setupMobiDragListener(mobiView);
     });
 
     mobiView.addEventListener('relocate', (e) => {
@@ -564,6 +628,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     // 初始绑定 iframe 监听器
     currentWheelCleanup = setupMobiWheelListener(mobiView);
     currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
+    currentDragCleanup = setupMobiDragListener(mobiView);
 
     // 设置进度条交互
     setupMobiProgressBar();

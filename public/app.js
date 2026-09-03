@@ -196,10 +196,10 @@ document.addEventListener('keydown', (event) => {
   if (state.renderMode === 'mobi' && state.mobiView) {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
       event.preventDefault();
-      state.mobiView.goLeft?.();
+      mobiPrev();
     } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'PageDown') {
       event.preventDefault();
-      state.mobiView.goRight?.();
+      mobiNext();
     }
     return;
   }

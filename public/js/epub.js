@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 import { t } from './i18n.js';
+import { beginPageDrag, cancelPageDrag, endPageDrag, turnPage, updatePageDrag } from './page-turn.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
@@ -186,7 +187,7 @@ function installEPUBNavigation(frameDocument) {
     suppressClickUntil = Date.now() + 360;
     if (event.cancelable) event.preventDefault();
     // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
-    requestEPUBNav(distanceX < 0 ? -1 : 1);
+    endPageDrag($('#epub-container'), distanceX, () => requestEPUBNav(distanceX < 0 ? -1 : 1), 0.15);
   };
   const suppressDraggedClick = (event) => {
     if (Date.now() >= suppressClickUntil) return;
@@ -228,6 +229,10 @@ function installEPUBNavigation(frameDocument) {
       const distanceY = event.clientY - gesture.y;
       if (isHorizontalSwipe(distanceX, distanceY)) {
         gesture.dragged = true;
+        if (!isPageTurning($('#epub-container'))) beginPageDrag(
+          $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
+        );
+        updatePageDrag($('#epub-container'), distanceX);
         if (event.cancelable) event.preventDefault();
       } else if (event.pointerType === 'mouse' && event.cancelable) {
         // 鼠标拖动不应触发文本选择，触屏则保留长按后的原生纵向手势。
@@ -247,7 +252,10 @@ function installEPUBNavigation(frameDocument) {
       // 未拖动的点按（含触屏轻点）按分区翻页。
       if (!current.dragged && isNavClick(event)) navigateByClickX(event.clientX);
     }, { passive: false });
-    frameDocument.addEventListener('pointercancel', reset, { passive: true });
+    frameDocument.addEventListener('pointercancel', () => {
+      cancelPageDrag($('#epub-container'));
+      reset();
+    }, { passive: true });
   } else {
     let touchStart = null;
     const resetTouch = () => { touchStart = null; };
@@ -273,7 +281,22 @@ function installEPUBNavigation(frameDocument) {
       }
       if (isNavClick(event)) navigateByClickX(touch.clientX);
     }, { passive: false });
-    frameDocument.addEventListener('touchcancel', resetTouch, { passive: true });
+    frameDocument.addEventListener('touchmove', (event) => {
+      if (!touchStart || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const distanceX = touch.clientX - touchStart.x;
+      const distanceY = touch.clientY - touchStart.y;
+      if (!isHorizontalSwipe(distanceX, distanceY)) return;
+      if (!isPageTurning($('#epub-container'))) beginPageDrag(
+        $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
+      );
+      updatePageDrag($('#epub-container'), distanceX);
+      if (event.cancelable) event.preventDefault();
+    }, { passive: false });
+    frameDocument.addEventListener('touchcancel', () => {
+      cancelPageDrag($('#epub-container'));
+      resetTouch();
+    }, { passive: true });
   }
 
   frameDocument.addEventListener('click', (event) => {
@@ -687,7 +710,10 @@ export async function jumpToEPUBPage(value) {
 export async function epubNext() {
   if (!state.rendition) return;
   if (state.epubMode === 'paginated') {
-    await state.rendition.next();
+    const container = $('#epub-container');
+    await new Promise((resolve, reject) => {
+      if (!turnPage(container, 1, () => state.rendition.next().then(resolve, reject))) resolve();
+    });
     return;
   }
   const container = $('#epub-container');
@@ -697,7 +723,10 @@ export async function epubNext() {
 export async function epubPrev() {
   if (!state.rendition) return;
   if (state.epubMode === 'paginated') {
-    await state.rendition.prev();
+    const container = $('#epub-container');
+    await new Promise((resolve, reject) => {
+      if (!turnPage(container, -1, () => state.rendition.prev().then(resolve, reject))) resolve();
+    });
     return;
   }
   const container = $('#epub-container');

@@ -1,0 +1,39 @@
+/* Apple Books 风格的轻量页面翻折层。真实内容仍由 EPUB/MOBI 引擎分页。 */
+.epub-container,
+.mobi-container {
+  --page-turn-duration: 460ms;
+  --page-turn-ease: cubic-bezier(0.22, 0.7, 0.2, 1);
+  position: relative;
+  isolation: isolate;
+  perspective: 1400px;
+}
+
+.page-turn-sheet {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  bottom: 0;
+  width: var(--turn-width, 0%);
+  pointer-events: none;
+  opacity: 0.82;
+  will-change: width, transform;
+  background: linear-gradient(90deg, transparent 0%, transparent 76%, rgba(255, 255, 255, 0.16) 91%, rgba(15, 23, 42, 0.22) 100%);
+  box-shadow: -10px 0 20px rgba(15, 23, 42, 0.14);
+  transition: width var(--page-turn-duration) var(--page-turn-ease), transform var(--page-turn-duration) var(--page-turn-ease);
+}
+
+.page-turn-sheet[data-direction="next"] { right: 0; transform-origin: right center; }
+.page-turn-sheet[data-direction="prev"] {
+  left: 0;
+  transform-origin: left center;
+  background: linear-gradient(270deg, transparent 0%, transparent 76%, rgba(255, 255, 255, 0.16) 91%, rgba(15, 23, 42, 0.22) 100%);
+  box-shadow: 10px 0 20px rgba(15, 23, 42, 0.14);
+}
+
+.page-turn-sheet.is-animating { transition-duration: var(--page-turn-duration); }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-turn-sheet {
+    transition-duration: 1ms;
+  }
+}
