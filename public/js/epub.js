@@ -2,8 +2,8 @@
 import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
-import { t } from './i18n.js';
-import { beginPageDrag, cancelPageDrag, endPageDrag, turnPage, updatePageDrag } from './page-turn.js';
+import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
+import { beginPageDrag, cancelPageDrag, endPageDrag, getPageTurnEffect, getAvailableEffects, isPageTurning, setPageTurnEffect, turnPage, updatePageDrag } from './page-turn.js';
 
 async function waitForLibrary(name, predicate, timeout = 8000) {
   const startedAt = Date.now();
@@ -144,6 +144,86 @@ function installEPUBStyles(contents) {
 
 let lastEPUBNavAt = 0;
 
+// ── 翻页效果选择器 ────────────────────────────────────────────────
+const EFFECT_LABELS = {
+  slide: () => t('reader.pageTurnSlide'),
+  fade: () => t('reader.pageTurnFade'),
+  flip: () => t('reader.pageTurnFlip'),
+  cover: () => t('reader.pageTurnCover'),
+  curl: () => t('reader.pageTurnCurl')
+};
+
+let epubTurnSelectorBound = false;
+
+function renderPageTurnDropdown(wrap) {
+  const dropdown = wrap.querySelector('.page-turn-dropdown');
+  if (!dropdown) return;
+  const current = getPageTurnEffect();
+  dropdown.replaceChildren();
+  getAvailableEffects().forEach((effect) => {
+    const btn = document.createElement('button');
+    btn.className = 'page-turn-option';
+    btn.type = 'button';
+    btn.role = 'option';
+    btn.dataset.effect = effect;
+    btn.setAttribute('aria-selected', effect === current ? 'true' : 'false');
+    btn.innerHTML = `<span class="page-turn-option-icon">${getEffectIcon(effect)}</span><span>${EFFECT_LABELS[effect]()}</span><span class="page-turn-option-check">✓</span>`;
+    btn.addEventListener('click', () => {
+      setPageTurnEffect(effect);
+      dropdown.querySelectorAll('.page-turn-option').forEach((opt) => {
+        opt.setAttribute('aria-selected', opt.dataset.effect === effect ? 'true' : 'false');
+      });
+      wrap.querySelector('.reader-btn').setAttribute('aria-expanded', 'false');
+      dropdown.hidden = true;
+    });
+    dropdown.appendChild(btn);
+  });
+}
+
+function setupPageTurnSelector() {
+  const wrap = $('#epub-turn-selector');
+  if (!wrap) return;
+  const trigger = wrap.querySelector('.reader-btn');
+  const dropdown = wrap.querySelector('.page-turn-dropdown');
+  if (!trigger || !dropdown) return;
+
+  renderPageTurnDropdown(wrap);
+
+  if (epubTurnSelectorBound) {
+    renderPageTurnDropdown(wrap); // 已绑定过，仅刷新语言
+    return;
+  }
+  epubTurnSelectorBound = true;
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    renderPageTurnDropdown(wrap); // 每次打开都刷新当前语言
+    const open = !dropdown.hidden;
+    dropdown.hidden = open;
+    trigger.setAttribute('aria-expanded', String(!open));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (wrap.contains(e.target)) return;
+    dropdown.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  });
+
+  // 语言切换时即时刷新菜单文案
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => renderPageTurnDropdown(wrap));
+}
+
+function getEffectIcon(effect) {
+  switch (effect) {
+    case 'slide': return '↔';
+    case 'fade': return '◐';
+    case 'flip': return '↻';
+    case 'cover': return '⇥';
+    case 'curl': return '◗';
+    default: return '•';
+  }
+}
+
 // 统一翻页节流：键盘、点击分区、滑动共用一个时间窗口，避免一次手势翻多页。
 function requestEPUBNav(direction) {
   const now = Date.now();
@@ -201,8 +281,15 @@ function installEPUBNavigation(frameDocument) {
   // iframe 内键盘事件不会冒泡到主文档，需要单独接管。
   frameDocument.addEventListener('keydown', (event) => {
     if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
-    const navKeys = { ArrowLeft: -1, ArrowUp: -1, PageUp: -1, ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1 };
-    const direction = navKeys[event.key];
+    const navKeys = {
+      ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
+      ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1,
+      w: -1, a: -1, s: 1, d: 1
+    };
+    const codeKeys = { KeyW: -1, KeyA: -1, KeyS: 1, KeyD: 1 };
+    const direction = navKeys[event.key]
+      ?? navKeys[event.key?.toLowerCase?.()]
+      ?? codeKeys[event.code];
     if (!direction) return;
     event.preventDefault();
     requestEPUBNav(direction);
@@ -507,6 +594,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     markBookOpened(filename);
     setEPUBStatus('ready');
     setupEPUBProgressBar();
+    setupPageTurnSelector();
 
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);

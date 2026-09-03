@@ -3,10 +3,91 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 import { t } from './i18n.js';
-import { beginPageDrag, cancelPageDrag, endPageDrag, isPageTurning, turnPage, updatePageDrag } from './page-turn.js';
+import { beginPageDrag, cancelPageDrag, endPageDrag, getPageTurnEffect, getAvailableEffects, isPageTurning, setPageTurnEffect, turnPage, updatePageDrag } from './page-turn.js';
+import { LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 let mobiView = null;
 let foliateLoaded = false;
+
+// ── 翻页效果选择器 ────────────────────────────────────────────────
+const EFFECT_LABELS = {
+  slide: () => t('reader.pageTurnSlide'),
+  fade: () => t('reader.pageTurnFade'),
+  flip: () => t('reader.pageTurnFlip'),
+  cover: () => t('reader.pageTurnCover'),
+  curl: () => t('reader.pageTurnCurl')
+};
+
+let mobiTurnSelectorBound = false;
+
+function renderPageTurnDropdown(wrap) {
+  const dropdown = wrap.querySelector('.page-turn-dropdown');
+  if (!dropdown) return;
+  const current = getPageTurnEffect();
+  dropdown.replaceChildren();
+  getAvailableEffects().forEach((effect) => {
+    const btn = document.createElement('button');
+    btn.className = 'page-turn-option';
+    btn.type = 'button';
+    btn.role = 'option';
+    btn.dataset.effect = effect;
+    btn.setAttribute('aria-selected', effect === current ? 'true' : 'false');
+    btn.innerHTML = `<span class="page-turn-option-icon">${getEffectIcon(effect)}</span><span>${EFFECT_LABELS[effect]()}</span><span class="page-turn-option-check">✓</span>`;
+    btn.addEventListener('click', () => {
+      setPageTurnEffect(effect);
+      dropdown.querySelectorAll('.page-turn-option').forEach((opt) => {
+        opt.setAttribute('aria-selected', opt.dataset.effect === effect ? 'true' : 'false');
+      });
+      wrap.querySelector('.reader-btn').setAttribute('aria-expanded', 'false');
+      dropdown.hidden = true;
+    });
+    dropdown.appendChild(btn);
+  });
+}
+
+function setupPageTurnSelector() {
+  const wrap = $('#mobi-turn-selector');
+  if (!wrap) return;
+  const trigger = wrap.querySelector('.reader-btn');
+  const dropdown = wrap.querySelector('.page-turn-dropdown');
+  if (!trigger || !dropdown) return;
+
+  renderPageTurnDropdown(wrap);
+
+  if (mobiTurnSelectorBound) {
+    renderPageTurnDropdown(wrap); // 已绑定过，仅刷新语言
+    return;
+  }
+  mobiTurnSelectorBound = true;
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    renderPageTurnDropdown(wrap); // 每次打开都刷新当前语言
+    const open = !dropdown.hidden;
+    dropdown.hidden = open;
+    trigger.setAttribute('aria-expanded', String(!open));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (wrap.contains(e.target)) return;
+    dropdown.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  });
+
+  // 语言切换时即时刷新菜单文案
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => renderPageTurnDropdown(wrap));
+}
+
+function getEffectIcon(effect) {
+  switch (effect) {
+    case 'slide': return '↔';
+    case 'fade': return '◐';
+    case 'flip': return '↻';
+    case 'cover': return '⇥';
+    case 'curl': return '◗';
+    default: return '•';
+  }
+}
 
 async function loadFoliateJS() {
   if (foliateLoaded) return;
@@ -157,11 +238,11 @@ export function toggleMobiTOC(force) {
 }
 
 export function mobiNext() {
-  if (mobiView) turnPage($('#mobi-container'), 1, () => mobiView.goRight?.());
+  if (mobiView) requestMobiNav(mobiView, 1);
 }
 
 export function mobiPrev() {
-  if (mobiView) turnPage($('#mobi-container'), -1, () => mobiView.goLeft?.());
+  if (mobiView) requestMobiNav(mobiView, -1);
 }
 
 function navigateMobi(view, direction) {
@@ -171,16 +252,29 @@ function navigateMobi(view, direction) {
   ));
 }
 
-// 全局翻页冷却标志（跨所有 wheel 监听器共享）
-let globalIsFlipping = false;
-let globalFlipCooldownTimer = null;
+let lastMobiNavAt = 0;
+
+function requestMobiNav(view, direction) {
+  const now = Date.now();
+  if (now - lastMobiNavAt < 320) return false;
+  lastMobiNavAt = now;
+  return navigateMobi(view, direction);
+}
 
 // Wheel 事件监听器设置（独立函数，供 renderMOBI 调用）
 function setupMobiWheelListener(view) {
-  let wheelDeltaX = 0;
-  let wheelResetTimer = null;
+  const container = $('#mobi-container');
+  container._mobiWheelCleanup?.();
+  const wheelState = container._mobiWheelState ?? {
+    deltaX: 0,
+    direction: 0,
+    resetTimer: null,
+    lastFlipAt: 0
+  };
+  container._mobiWheelState = wheelState;
   const WHEEL_THRESHOLD = 80; // 提高阈值到 80
-  const FLIP_COOLDOWN = 500; // 延长冷却时间到 500ms
+  const MAX_WHEEL_STEP = 24;
+  const FLIP_COOLDOWN = 650;
 
   const contents = view.renderer?.getContents?.();
   if (!contents || contents.length === 0) {
@@ -197,9 +291,12 @@ function setupMobiWheelListener(view) {
   console.log('[MOBI] 成功获取 iframe document，绑定 wheel 事件');
 
   const wheelHandler = (event) => {
-    // 如果正在全局翻页冷却中，忽略所有滑动
-    if (globalIsFlipping) {
+    const now = performance.now();
+    // 同一次触控板惯性会产生多个 wheel 事件，短时间内只允许一次翻页。
+    if (now - wheelState.lastFlipAt < FLIP_COOLDOWN) {
       console.log('[MOBI] 翻页冷却中，忽略滑动');
+      wheelState.deltaX = 0;
+      wheelState.direction = 0;
       return;
     }
 
@@ -208,50 +305,50 @@ function setupMobiWheelListener(view) {
 
     // 更严格的横向判断：横向分量必须 > 垂直分量的 2 倍
     if (Math.abs(deltaX) <= Math.abs(deltaY) * 2.0) {
-      wheelDeltaX = 0;
+      wheelState.deltaX = 0;
+      wheelState.direction = 0;
       return;
     }
 
+    const direction = Math.sign(deltaX);
+    if (wheelState.direction && wheelState.direction !== direction) {
+      wheelState.deltaX = 0;
+    }
+    wheelState.direction = direction;
+    const normalizedDeltaX = direction * Math.min(Math.abs(deltaX), MAX_WHEEL_STEP);
+
     // 清除重置定时器
-    clearTimeout(wheelResetTimer);
+    clearTimeout(wheelState.resetTimer);
 
     // 累积横向滚动距离
-    wheelDeltaX += deltaX;
+    wheelState.deltaX += normalizedDeltaX;
 
-    console.log(`[MOBI] Wheel 累积: ${wheelDeltaX.toFixed(1)}, 阈值: ${WHEEL_THRESHOLD}`);
+    console.log(`[MOBI] Wheel 累积: ${wheelState.deltaX.toFixed(1)}, 阈值: ${WHEEL_THRESHOLD}`);
 
     // 判断是否达到阈值
-    if (Math.abs(wheelDeltaX) >= WHEEL_THRESHOLD) {
-      console.log(`[MOBI] Wheel ✓ 触发翻页！累积=${wheelDeltaX.toFixed(1)}`);
+    if (Math.abs(wheelState.deltaX) >= WHEEL_THRESHOLD) {
+      console.log(`[MOBI] Wheel ✓ 触发翻页！累积=${wheelState.deltaX.toFixed(1)}`);
 
-      // 设置全局翻页标志，进入冷却期
-      globalIsFlipping = true;
-
-      // 清除之前的冷却定时器
-      clearTimeout(globalFlipCooldownTimer);
+      wheelState.lastFlipAt = now;
 
       // 正值（向左滑）：下一页，负值（向右滑）：上一页
-      if (wheelDeltaX > 0) {
+      if (wheelState.deltaX > 0) {
         console.log('[MOBI] 向左滑动 -> 下一页');
-        navigateMobi(view, 1);
+        requestMobiNav(view, 1);
       } else {
         console.log('[MOBI] 向右滑动 -> 上一页');
-        navigateMobi(view, -1);
+        requestMobiNav(view, -1);
       }
 
       // 立即重置累积值
-      wheelDeltaX = 0;
-
-      // 冷却时间后才允许下次翻页
-      globalFlipCooldownTimer = setTimeout(() => {
-        globalIsFlipping = false;
-        console.log('[MOBI] 翻页冷却结束');
-      }, FLIP_COOLDOWN);
+      wheelState.deltaX = 0;
+      wheelState.direction = 0;
 
     } else {
       // 300ms 内没有新的 wheel 事件，重置累积值
-      wheelResetTimer = setTimeout(() => {
-        wheelDeltaX = 0;
+      wheelState.resetTimer = setTimeout(() => {
+        wheelState.deltaX = 0;
+        wheelState.direction = 0;
       }, 300);
     }
   };
@@ -259,10 +356,13 @@ function setupMobiWheelListener(view) {
   iframeDoc.addEventListener('wheel', wheelHandler, { passive: true });
 
   // 返回清理函数
-  return () => {
+  const cleanup = () => {
     iframeDoc.removeEventListener('wheel', wheelHandler);
-    clearTimeout(wheelResetTimer);
+    clearTimeout(wheelState.resetTimer);
+    if (container._mobiWheelCleanup === cleanup) delete container._mobiWheelCleanup;
   };
+  container._mobiWheelCleanup = cleanup;
+  return cleanup;
 }
 
 // 键盘翻页：iframe 内的 keydown 不冒泡到主文档，需在 iframe document 上单独接管。
@@ -280,15 +380,29 @@ function setupMobiKeyboardListener(view) {
 
   const keyHandler = (event) => {
     if (event.target?.closest?.('input, textarea, select')) return;
-    const navKeys = { ArrowLeft: -1, ArrowUp: -1, PageUp: -1, ArrowRight: 1, ArrowDown: 1, PageDown: 1 };
-    const direction = navKeys[event.key];
+    const navKeys = {
+      ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
+      ArrowRight: 1, ArrowDown: 1, PageDown: 1,
+      w: -1, a: -1, s: 1, d: 1
+    };
+    const codeKeys = { KeyW: -1, KeyA: -1, KeyS: 1, KeyD: 1 };
+    const direction = navKeys[event.key]
+      ?? navKeys[event.key?.toLowerCase?.()]
+      ?? codeKeys[event.code];
     if (!direction) return;
     event.preventDefault();
-    navigateMobi(view, direction);
+    requestMobiNav(view, direction);
   };
 
+  const container = $('#mobi-container');
+  container._mobiKeyboardCleanup?.();
   iframeDoc.addEventListener('keydown', keyHandler);
-  return () => iframeDoc.removeEventListener('keydown', keyHandler);
+  const cleanup = () => {
+    iframeDoc.removeEventListener('keydown', keyHandler);
+    if (container._mobiKeyboardCleanup === cleanup) delete container._mobiKeyboardCleanup;
+  };
+  container._mobiKeyboardCleanup = cleanup;
+  return cleanup;
 }
 
 function setupMobiDragListener(view) {
@@ -296,15 +410,17 @@ function setupMobiDragListener(view) {
   const iframeDocument = contents?.[0]?.doc;
   if (!iframeDocument) return null;
   const container = $('#mobi-container');
+  container._mobiDragCleanup?.();
   let gesture = null;
 
   const onPointerDown = (event) => {
-    if (event.isPrimary === false || event.button !== undefined && event.button !== 0
+    if (event.pointerType !== 'mouse' || event.isPrimary === false
+      || event.button !== undefined && event.button !== 0
       || event.target?.closest?.('a, button, input, select, textarea')) return;
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, target: event.target };
   };
   const onPointerMove = (event) => {
-    if (!gesture || event.pointerId !== gesture.id) return;
+    if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
     const distanceX = event.clientX - gesture.x;
     const distanceY = event.clientY - gesture.y;
     if (Math.abs(distanceX) < 24 || Math.abs(distanceX) <= Math.abs(distanceY) * 1.25) return;
@@ -313,13 +429,13 @@ function setupMobiDragListener(view) {
     if (event.cancelable) event.preventDefault();
   };
   const onPointerUp = (event) => {
-    if (!gesture || event.pointerId !== gesture.id) return;
+    if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
     const current = gesture;
     gesture = null;
     const distanceX = event.clientX - current.x;
     const distanceY = event.clientY - current.y;
     if (Math.abs(distanceX) > 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25) {
-      endPageDrag(container, distanceX, () => navigateMobi(view, distanceX < 0 ? 1 : -1), 0.15);
+      endPageDrag(container, distanceX, () => requestMobiNav(view, distanceX < 0 ? 1 : -1), 0.15);
     } else {
       cancelPageDrag(container);
     }
@@ -333,12 +449,14 @@ function setupMobiDragListener(view) {
   iframeDocument.addEventListener('pointermove', onPointerMove, { passive: false });
   iframeDocument.addEventListener('pointerup', onPointerUp, { passive: false });
   iframeDocument.addEventListener('pointercancel', onPointerCancel, { passive: true });
-  return () => {
+  const cleanup = () => {
     iframeDocument.removeEventListener('pointerdown', onPointerDown);
     iframeDocument.removeEventListener('pointermove', onPointerMove);
     iframeDocument.removeEventListener('pointerup', onPointerUp);
     iframeDocument.removeEventListener('pointercancel', onPointerCancel);
   };
+  container._mobiDragCleanup = cleanup;
+  return cleanup;
 }
 
 function setupMobiInteractions(view) {
@@ -389,11 +507,11 @@ function setupMobiInteractions(view) {
 
     // 左边 1/3 区域：上一页
     if (x < width / 3) {
-      navigateMobi(view, -1);
+      requestMobiNav(view, -1);
     }
     // 右边 1/3 区域：下一页
     else if (x > width * 2 / 3) {
-      navigateMobi(view, 1);
+      requestMobiNav(view, 1);
     }
   };
 
@@ -496,6 +614,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
   console.log('[renderMOBI] 开始渲染:', filename);
   console.log('[renderMOBI] URL:', url);
   console.log('[renderMOBI] requestId:', requestId);
+  if (requestId !== state.requestId) return;
 
   // 立即显示保存的进度（如果有）
   const savedProgress = getBookReadingProgress(filename);
@@ -523,9 +642,10 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
 
     // 创建 foliate-view 元素
     console.log('[MOBI] 步骤 3: 创建 foliate-view 元素');
-    mobiView = document.createElement('foliate-view');
-    mobiView.requestId = requestId;
-    container.appendChild(mobiView);
+    const view = document.createElement('foliate-view');
+    view.requestId = requestId;
+    mobiView = view;
+    container.appendChild(view);
     console.log('[MOBI] 步骤 3 完成: foliate-view 元素已创建并添加到 DOM');
 
     setMobiStatus(t('reader.parsingMobi'), t('reader.loadingFileContent'));
@@ -534,10 +654,11 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     console.log('[MOBI] 文件 URL:', url);
 
     // 打开 MOBI 文件
-    await mobiView.open(url);
+    await view.open(url);
+    if (requestId !== state.requestId || mobiView !== view) return;
     console.log('[MOBI] 步骤 4 完成: open() 返回成功');
 
-    mobiView.renderer?.setAttribute('animated', '');
+    view.renderer?.setAttribute('animated', '');
 
     // 按照 reader.js 的顺序，在 open() 之后添加事件监听器
     console.log('[MOBI] 步骤 5: 添加事件监听器');
@@ -547,7 +668,8 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     let currentKeyboardCleanup = null;
     let currentDragCleanup = null;
 
-    mobiView.addEventListener('load', (e) => {
+    view.addEventListener('load', (e) => {
+      if (requestId !== state.requestId || mobiView !== view) return;
       console.log('[MOBI] ✓ load 事件触发:', e.detail);
 
       const contentDocument = e.detail?.doc;
@@ -571,18 +693,19 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
       if (currentWheelCleanup) {
         currentWheelCleanup();
       }
-      currentWheelCleanup = setupMobiWheelListener(mobiView);
+      currentWheelCleanup = setupMobiWheelListener(view);
       if (currentKeyboardCleanup) {
         currentKeyboardCleanup();
       }
-      currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
+      currentKeyboardCleanup = setupMobiKeyboardListener(view);
       if (currentDragCleanup) {
         currentDragCleanup();
       }
-      currentDragCleanup = setupMobiDragListener(mobiView);
+      currentDragCleanup = setupMobiDragListener(view);
     });
 
-    mobiView.addEventListener('relocate', (e) => {
+    view.addEventListener('relocate', (e) => {
+      if (requestId !== state.requestId || mobiView !== view) return;
       const detail = e.detail;
       console.log('[MOBI] relocate 事件:', detail);
 
@@ -597,9 +720,9 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     });
 
     // 构建目录
-    if (mobiView.book?.toc) {
+    if (view.book?.toc) {
       console.log('[MOBI] 构建目录...');
-      buildMobiTOC(mobiView.book.toc);
+      buildMobiTOC(view.book.toc);
     }
 
     // 关键步骤：导航到保存的位置或第一页
@@ -608,14 +731,16 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     // 恢复到保存的位置或从头开始
     if (restoreLocation?.kind === 'mobi-cfi' && restoreLocation.value) {
       console.log('[MOBI] 恢复到保存的 CFI 位置:', restoreLocation.value);
-      await mobiView.goTo(restoreLocation.value);
+      await view.goTo(restoreLocation.value);
     } else if (typeof savedProgress === 'number' && savedProgress > 0) {
       console.log('[MOBI] 恢复到进度:', Math.round(savedProgress * 100) + '%');
-      await mobiView.goToFraction(savedProgress);
+      await view.goToFraction(savedProgress);
     } else {
       console.log('[MOBI] 从第一页开始');
-      await mobiView.goTo(0);
+      await view.goTo(0);
     }
+
+    if (requestId !== state.requestId || mobiView !== view) return;
 
     console.log('[MOBI] 步骤 6 完成: 已导航到目标位置');
 
@@ -626,13 +751,14 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     setupMobiInteractions(mobiView);
 
     // 初始绑定 iframe 监听器
-    currentWheelCleanup = setupMobiWheelListener(mobiView);
-    currentKeyboardCleanup = setupMobiKeyboardListener(mobiView);
-    currentDragCleanup = setupMobiDragListener(mobiView);
+    if (!currentWheelCleanup) currentWheelCleanup = setupMobiWheelListener(view);
+    if (!currentKeyboardCleanup) currentKeyboardCleanup = setupMobiKeyboardListener(view);
+    if (!currentDragCleanup) currentDragCleanup = setupMobiDragListener(view);
 
     // 设置进度条交互
     setupMobiProgressBar();
     setupMobiPageJump();
+    setupPageTurnSelector();
 
     const metadata = state.booksMetadata?.[filename];
     let title;

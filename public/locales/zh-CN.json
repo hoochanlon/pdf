@@ -103,7 +103,13 @@
     "mobiLibraryLoadFailed": "无法加载 MOBI 阅读库: {message}",
     "mobiLibraryInitTimeout": "foliate-js 初始化超时",
     "untitledChapter": "未命名章节",
-    "jumpToPage": "跳转到第 {page} 页"
+    "jumpToPage": "跳转到第 {page} 页",
+    "pageTurnEffect": "翻页效果",
+    "pageTurnSlide": "平滑滑动",
+    "pageTurnFade": "淡入淡出",
+    "pageTurnFlip": "仿真翻页",
+    "pageTurnCover": "覆盖滑动",
+    "pageTurnCurl": "卷页揭页"
   },
   "sidebar": {
     "collapse": "收起书架",

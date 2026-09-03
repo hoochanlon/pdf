@@ -103,7 +103,13 @@
     "mobiLibraryLoadFailed": "Unable to load the MOBI reading library: {message}",
     "mobiLibraryInitTimeout": "foliate-js initialization timed out",
     "untitledChapter": "Untitled chapter",
-    "jumpToPage": "Jump to page {page}"
+    "jumpToPage": "Jump to page {page}",
+    "pageTurnEffect": "Page Turn Effect",
+    "pageTurnSlide": "Slide",
+    "pageTurnFade": "Fade",
+    "pageTurnFlip": "Flip",
+    "pageTurnCover": "Cover Slide",
+    "pageTurnCurl": "Curl"
   },
   "sidebar": {
     "collapse": "Collapse Library",

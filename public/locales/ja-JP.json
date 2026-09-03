@@ -103,7 +103,13 @@
     "mobiLibraryLoadFailed": "MOBI 読書ライブリを読み込めません: {message}",
     "mobiLibraryInitTimeout": "foliate-js の初期化がタイムアウトしました",
     "untitledChapter": "無題の章",
-    "jumpToPage": "{page} ページへ移動"
+    "jumpToPage": "{page} ページへ移動",
+    "pageTurnEffect": "ページめくり効果",
+    "pageTurnSlide": "スライド",
+    "pageTurnFade": "フェード",
+    "pageTurnFlip": "フリップ",
+    "pageTurnCover": "カバースライド",
+    "pageTurnCurl": "カール"
   },
   "sidebar": {
     "collapse": "ライブラリを折りたたむ",

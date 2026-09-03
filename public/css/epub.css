@@ -428,3 +428,72 @@
   pointer-events: none;
   user-select: none;
 }
+
+/* ── 翻页效果选择器 ────────────────────────────────────── */
+.page-turn-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.page-turn-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 160px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.page-turn-dropdown[hidden] {
+  display: none;
+}
+
+.page-turn-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  color: #e2e8f0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.page-turn-option:hover,
+.page-turn-option:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.page-turn-option[aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.page-turn-option-icon {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.page-turn-option-check {
+  margin-left: auto;
+  opacity: 0;
+  font-size: 12px;
+  color: #60a5fa;
+}
+
+.page-turn-option[aria-selected="true"] .page-turn-option-check {
+  opacity: 1;
+}

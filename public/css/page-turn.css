@@ -1,39 +1,196 @@
-/* Apple Books 风格的轻量页面翻折层。真实内容仍由 EPUB/MOBI 引擎分页。 */
+/* ── 翻页动画效果（5 种）────────────────────────────────────── */
 .epub-container,
 .mobi-container {
-  --page-turn-duration: 460ms;
-  --page-turn-ease: cubic-bezier(0.22, 0.7, 0.2, 1);
+  --page-turn-duration: 420ms;
+  --page-turn-ease: cubic-bezier(0.2, 0.76, 0.24, 1);
   position: relative;
   isolation: isolate;
-  perspective: 1400px;
 }
 
+/* ── 通用 sheet 基础 ─────────────────────────────────────────── */
 .page-turn-sheet {
   position: absolute;
   z-index: 20;
   top: 0;
   bottom: 0;
-  width: var(--turn-width, 0%);
+  width: 100%;
   pointer-events: none;
-  opacity: 0.82;
-  will-change: width, transform;
-  background: linear-gradient(90deg, transparent 0%, transparent 76%, rgba(255, 255, 255, 0.16) 91%, rgba(15, 23, 42, 0.22) 100%);
-  box-shadow: -10px 0 20px rgba(15, 23, 42, 0.14);
-  transition: width var(--page-turn-duration) var(--page-turn-ease), transform var(--page-turn-duration) var(--page-turn-ease);
+  overflow: hidden;
+  will-change: transform, opacity;
+  transition: none;
 }
 
-.page-turn-sheet[data-direction="next"] { right: 0; transform-origin: right center; }
-.page-turn-sheet[data-direction="prev"] {
+.page-turn-sheet.is-animating {
+  transition: transform var(--page-turn-duration) var(--page-turn-ease),
+              opacity var(--page-turn-duration) var(--page-turn-ease),
+              width var(--page-turn-duration) var(--page-turn-ease),
+              clip-path var(--page-turn-duration) var(--page-turn-ease),
+              filter var(--page-turn-duration) var(--page-turn-ease);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   1. SLIDE — 平滑滑动（Kindle/微信读书风格）
+   整页从侧面推入，旧页面被推出
+   ══════════════════════════════════════════════════════════════ */
+.page-turn-sheet[data-effect="slide"] {
+  --turn-x: 100%;
+  background: var(--paper-bg, #fffdf9);
+  transform: translateX(var(--turn-x));
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
+}
+.page-turn-sheet[data-effect="slide"][data-direction="next"] {
+  --turn-x: 100%;
+}
+.page-turn-sheet[data-effect="slide"][data-direction="prev"] {
+  --turn-x: -100%;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   2. FADE — 淡入淡出（安静优雅）
+   遮罩层覆盖当前页面，通过透明度变化过渡
+   ══════════════════════════════════════════════════════════════ */
+.page-turn-sheet[data-effect="fade"] {
+  --turn-opacity: 0;
+  background: var(--paper-bg, #fffdf9);
+  opacity: var(--turn-opacity);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3. FLIP — 仿真翻页（Apple Books 风格 3D 翻折）
+   页面边缘翻折，带阴影和纸张质感
+   ══════════════════════════════════════════════════════════════ */
+.epub-container[data-page-turn],
+.mobi-container[data-page-turn] {
+  perspective: 1400px;
+}
+
+.page-turn-sheet[data-effect="flip"] {
+  --turn-angle: 0deg;
+  --turn-width: 0%;
+  width: min(var(--turn-width), 17%);
+  transform: perspective(900px) rotateY(var(--turn-angle));
+  transform-style: preserve-3d;
+  background: linear-gradient(90deg, rgba(255, 253, 249, 0), rgba(255, 253, 249, 0.28) 62%, #fffdf9);
+  box-shadow: -18px 0 28px rgba(15, 23, 42, 0.2);
+  clip-path: ellipse(100% 72% at 100% 50%);
+  filter: drop-shadow(-12px 0 12px rgba(15, 23, 42, 0.18));
+}
+.page-turn-sheet[data-effect="flip"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  content: '';
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(15, 23, 42, 0.2));
+  filter: blur(1px);
+}
+
+.page-turn-sheet[data-effect="flip"][data-direction="next"] {
+  right: 0;
+  transform-origin: right center;
+}
+.page-turn-sheet[data-effect="flip"][data-direction="next"]::after {
+  left: 0;
+}
+
+.page-turn-sheet[data-effect="flip"][data-direction="prev"] {
   left: 0;
   transform-origin: left center;
-  background: linear-gradient(270deg, transparent 0%, transparent 76%, rgba(255, 255, 255, 0.16) 91%, rgba(15, 23, 42, 0.22) 100%);
-  box-shadow: 10px 0 20px rgba(15, 23, 42, 0.14);
+  background: linear-gradient(270deg, rgba(255, 253, 249, 0), rgba(255, 253, 249, 0.28) 62%, #fffdf9);
+  box-shadow: 18px 0 28px rgba(15, 23, 42, 0.2);
+  clip-path: ellipse(100% 72% at 0 50%);
+  filter: drop-shadow(12px 0 12px rgba(15, 23, 42, 0.18));
+}
+.page-turn-sheet[data-effect="flip"][data-direction="prev"]::after {
+  right: 0;
+  transform: scaleX(-1);
 }
 
-.page-turn-sheet.is-animating { transition-duration: var(--page-turn-duration); }
+/* ══════════════════════════════════════════════════════════════
+   4. COVER — 覆盖滑动（iOS 风格）
+   新页面从侧面滑入覆盖旧页面，旧页面不动
+   ══════════════════════════════════════════════════════════════ */
+.page-turn-sheet[data-effect="cover"] {
+  --turn-x: 100%;
+  background: var(--paper-bg, #fffdf9);
+  transform: translateX(var(--turn-x));
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.15);
+}
+.page-turn-sheet[data-effect="cover"][data-direction="next"] {
+  --turn-x: 100%;
+}
+.page-turn-sheet[data-effect="cover"][data-direction="prev"] {
+  --turn-x: -100%;
+}
+/* 覆盖滑动：新页面边缘带渐变阴影，模拟纸张厚度 */
+.page-turn-sheet[data-effect="cover"][data-direction="next"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  content: '';
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), transparent);
+}
+.page-turn-sheet[data-effect="cover"][data-direction="prev"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  content: '';
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.08), transparent);
+}
 
+/* ══════════════════════════════════════════════════════════════
+   5. CURL — 卷页揭页（Google Play Books 风格）
+   从角落揭起页面，露出下一页
+   ══════════════════════════════════════════════════════════════ */
+.page-turn-sheet[data-effect="curl"] {
+  --curl-progress: 0;
+  background: var(--paper-bg, #fffdf9);
+  clip-path: polygon(
+    calc(100% - var(--curl-progress) * 100%) 0%,
+    100% 0%,
+    100% 100%,
+    calc(100% - var(--curl-progress) * 100%) 100%
+  );
+  box-shadow: -8px 0 20px rgba(0, 0, 0, 0.15);
+}
+/* 卷页阴影 — 模拟纸张弯曲产生的渐变阴影 */
+.page-turn-sheet[data-effect="curl"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  content: '';
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.06) 40%, transparent);
+  filter: blur(2px);
+  opacity: var(--curl-progress);
+}
+.page-turn-sheet[data-effect="curl"][data-direction="next"] {
+  right: 0;
+}
+.page-turn-sheet[data-effect="curl"][data-direction="next"]::after {
+  right: 0;
+}
+.page-turn-sheet[data-effect="curl"][data-direction="prev"] {
+  left: 0;
+  clip-path: polygon(
+    0% 0%,
+    calc(var(--curl-progress) * 100%) 0%,
+    calc(var(--curl-progress) * 100%) 100%,
+    0% 100%
+  );
+}
+.page-turn-sheet[data-effect="curl"][data-direction="prev"]::after {
+  left: 0;
+  background: linear-gradient(270deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.06) 40%, transparent);
+}
+
+/* ── 减弱动画偏好 ────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .page-turn-sheet {
-    transition-duration: 1ms;
+  .page-turn-sheet.is-animating {
+    transition-duration: 1ms !important;
   }
 }
