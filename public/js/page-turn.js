@@ -356,6 +356,11 @@ async function finalizeTurn(container, sheet, navigate) {
 // shouldBypassAnimation=true → 立即导航 + removeSheet。这里不再走 prepareTurn 的 300ms 等待。
 async function runTurn(container, sheet, direction, navigate) {
   try {
+    if (IS_WEBKIT_LIKE) {
+      await runWebKitTurn(container, direction, navigate);
+      removeSheet(container, true, sheet);
+      return;
+    }
     await ensureProbe(container);
     // 进入 bypass 模式：连续截图失败时不产生空 sheet、不阻塞主线程。
     if (shouldBypassAnimation(container)) {
@@ -387,6 +392,21 @@ async function runTurn(container, sheet, direction, navigate) {
   } finally {
     // 无论成功失败（含 bypass removeSheet 已删）都确保释放 activeContainers
     activeContainers.delete(container);
+  }
+}
+
+// WebKit 无法稳定序列化 EPUB 的 blob iframe，使用宿主层过渡替代截图层。
+async function runWebKitTurn(container, direction, navigate) {
+  container.dataset.pageTurn = direction < 0 ? 'prev' : 'next';
+  container.dataset.pageTurnEffect = currentEffect;
+  container.classList.add('webkit-page-turning');
+  await new Promise((resolve) => window.setTimeout(resolve, ANIMATION_DURATION / 2));
+  try {
+    await Promise.resolve(navigate());
+  } finally {
+    await new Promise((resolve) => window.setTimeout(resolve, ANIMATION_DURATION / 2));
+    container.classList.remove('webkit-page-turning');
+    delete container.dataset.pageTurnEffect;
   }
 }
 
@@ -527,6 +547,7 @@ export function turnPage(container, direction, navigate) {
 
 export function beginPageDrag(container, direction, width) {
   if (!container || activeContainers.has(container) || width <= 0) return false;
+  if (IS_WEBKIT_LIKE) return false; // Safari 使用宿主层过渡，不建立 iframe 截图拖拽层
   if (shouldBypassAnimation(container)) return false; // bypass：不生成 sheet，拖拽无动画
   const sheet = ensureSheet(container, direction);
   sheet.classList.remove('is-animating', 'is-cancelled', 'is-hidden');
@@ -592,8 +613,7 @@ export function isPageTurning(container) {
  *   3) 连续截图失败的短暂 bypass 窗口
  */
 export function isPageTurnBypassed(container) {
-  // WebKit 始终禁用截图翻页，避免 Safari 保留异步 transition/transform 状态。
-  if (IS_WEBKIT_LIKE) return true;
+  if (IS_WEBKIT_LIKE) return false;
   if (probeResults.get(container) === 'testing') return true;
   const s = captureStats.get(container);
   return Boolean(s && Date.now() < s.bypassUntil);

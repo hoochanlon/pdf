@@ -43,6 +43,64 @@
   opacity: 0 !important;
 }
 
+/* Safari 的 EPUB iframe 无法作为截图层，改用宿主层淡出/淡入完成导航过渡。 */
+.epub-container.webkit-page-turning {
+  animation: webkit-page-turn var(--page-turn-duration) var(--page-turn-ease) both;
+}
+
+@keyframes webkit-page-turn {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  48% {
+    opacity: 0;
+    transform: translateX(var(--webkit-turn-out, -2.5%)) scale(0.985);
+  }
+  52% {
+    opacity: 0;
+    transform: translateX(var(--webkit-turn-in, 2.5%)) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.epub-container.webkit-page-turning[data-page-turn="prev"] {
+  --webkit-turn-out: 2.5%;
+  --webkit-turn-in: -2.5%;
+}
+
+.epub-container.webkit-page-turning[data-page-turn-effect="fade"] {
+  animation-name: webkit-page-turn-fade;
+}
+
+@keyframes webkit-page-turn-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.epub-container.webkit-page-turning[data-page-turn-effect="flip"] {
+  animation-name: webkit-page-turn-flip;
+  transform-origin: center;
+}
+
+@keyframes webkit-page-turn-flip {
+  0%, 100% {
+    opacity: 1;
+    transform: perspective(1400px) rotateY(0deg) scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: perspective(1400px) rotateY(var(--webkit-flip-angle, -78deg)) scale(0.985);
+  }
+}
+
+.epub-container.webkit-page-turning[data-page-turn="prev"][data-page-turn-effect="flip"] {
+  --webkit-flip-angle: 78deg;
+}
+
 /* ══════════════════════════════════════════════════════════════
    1. SLIDE — 平滑滑动（Kindle/微信读书风格）
    旧页整页从侧面推出，露出下方真实新页

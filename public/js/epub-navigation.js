@@ -93,9 +93,9 @@ export function setupPageTurnSelector() {
       wrap.removeAttribute('title');
     } else {
       const msg = t('reader.epubPageTurnChromeOnly');
-      // 用 data-tooltip 直接生效；title 再留一份兜底（aria 提示）
+      // 使用自定义 tooltip，避免 Safari 原生 title 提示强制单行截断。
       wrap.setAttribute('data-tooltip', msg);
-      wrap.setAttribute('title', msg);
+      wrap.removeAttribute('title');
     }
   };
   applyTooltip();
@@ -203,7 +203,14 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     suppressClickUntil = Date.now() + 360;
     if (event.cancelable) event.preventDefault();
     // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
-    endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
+    const turned = endPageDrag(
+      $('#epub-container'),
+      dx,
+      () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }),
+      0.15,
+    );
+    // Safari 不使用截图拖拽层，未建立 drag 时仍需提交这次滑动导航。
+    if (!turned) requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' });
   };
   const suppressDraggedClick = (event) => {
     if (Date.now() >= suppressClickUntil) return;
@@ -646,6 +653,10 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
   //   - resize 时用 ResizeObserver 在下一个 start 前重新获取（这里直接取到 rect 后缓存 1 帧，
   //     实际 Safari 的触摸滑动期间视口不会动，足以 100% 命中缓存）
   const hostWidth = () => iframe.clientWidth || frameWindow.innerWidth || container.clientWidth || 1;
+  const finishHostSwipe = (dx) => {
+    const navigate = () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' });
+    if (!endPageDrag(container, dx, navigate, 0.15)) navigate();
+  };
   let cachedRect = null;
   function takeRect() {
     cachedRect = iframe.getBoundingClientRect();
@@ -693,7 +704,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(event) - cur.y;
     window.setTimeout(clearCachedRectLater, 0);
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
+      finishHostSwipe(dx);
       return;
     }
     if (!cur.dragged) navigateByClickX(localXFromEvent(event), hostWidth());
@@ -733,7 +744,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(event) - cur.y;
     clearCachedRectLater();
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
+      finishHostSwipe(dx);
       return;
     }
     navigateByClickX(localXFromEvent(event), hostWidth());
@@ -770,7 +781,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(t) - cur.y;
     clearCachedRectLater();
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
+      finishHostSwipe(dx);
       return;
     }
     navigateByClickX(localXFromEvent(t), hostWidth());
