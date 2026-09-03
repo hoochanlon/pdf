@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
 import { t } from './i18n.js';
-import { beginPageDrag, cancelPageDrag, endPageDrag, getPageTurnEffect, getAvailableEffects, isPageTurning, setPageTurnEffect, turnPage, updatePageDrag } from './page-turn.js';
+import { getPageTurnEffect, getAvailableEffects, setPageTurnEffect } from './page-turn.js';
 import { LANGUAGE_CHANGE_EVENT } from './i18n.js';
 
 let mobiView = null;
@@ -246,10 +246,7 @@ export function mobiPrev() {
 }
 
 function navigateMobi(view, direction) {
-  const container = $('#mobi-container');
-  return turnPage(container, direction, () => (
-    direction < 0 ? view.goLeft?.() : view.goRight?.()
-  ));
+  return direction < 0 ? view.goLeft?.() : view.goRight?.();
 }
 
 let lastMobiNavAt = 0;
@@ -424,8 +421,6 @@ function setupMobiDragListener(view) {
     const distanceX = event.clientX - gesture.x;
     const distanceY = event.clientY - gesture.y;
     if (Math.abs(distanceX) < 24 || Math.abs(distanceX) <= Math.abs(distanceY) * 1.25) return;
-    if (!isPageTurning(container)) beginPageDrag(container, distanceX < 0 ? 1 : -1, iframeDocument.defaultView.innerWidth);
-    updatePageDrag(container, distanceX);
     if (event.cancelable) event.preventDefault();
   };
   const onPointerUp = (event) => {
@@ -435,14 +430,11 @@ function setupMobiDragListener(view) {
     const distanceX = event.clientX - current.x;
     const distanceY = event.clientY - current.y;
     if (Math.abs(distanceX) > 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25) {
-      endPageDrag(container, distanceX, () => requestMobiNav(view, distanceX < 0 ? 1 : -1), 0.15);
-    } else {
-      cancelPageDrag(container);
+      requestMobiNav(view, distanceX < 0 ? 1 : -1);
     }
   };
   const onPointerCancel = () => {
     gesture = null;
-    cancelPageDrag(container);
   };
 
   iframeDocument.addEventListener('pointerdown', onPointerDown, { passive: true });
@@ -646,6 +638,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     view.requestId = requestId;
     mobiView = view;
     container.appendChild(view);
+
     console.log('[MOBI] 步骤 3 完成: foliate-view 元素已创建并添加到 DOM');
 
     setMobiStatus(t('reader.parsingMobi'), t('reader.loadingFileContent'));
@@ -658,6 +651,7 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     if (requestId !== state.requestId || mobiView !== view) return;
     console.log('[MOBI] 步骤 4 完成: open() 返回成功');
 
+    // MOBI 使用 foliate 分页器自己的 viewport 动画，不使用截图覆盖层。
     view.renderer?.setAttribute('animated', '');
 
     // 按照 reader.js 的顺序，在 open() 之后添加事件监听器
@@ -758,7 +752,6 @@ export async function renderMOBI(url, filename, requestId, restoreLocation = nul
     // 设置进度条交互
     setupMobiProgressBar();
     setupMobiPageJump();
-    setupPageTurnSelector();
 
     const metadata = state.booksMetadata?.[filename];
     let title;

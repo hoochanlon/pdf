@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>crop test</title></head>
+<body style="margin:0">
+  <iframe id="view" style="width:840px;height:642px;border:0" srcdoc='
+    <html><head><style>
+      html,body{margin:0}
+      body{width:840px;height:642px;overflow-y:hidden;box-sizing:border-box;
+        column-fill:auto;column-gap:70px;column-width:350px;padding:20px 35px;
+        font:16px/1.7 serif}
+    </style></head><body>
+      <h1>COLUMN-ONE-HEADING</h1><p>One two three four five six seven eight nine ten.</p>
+      <p>This is the first column content. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+      <p>Second column begins here. Nullam auctor, nisi in tincidunt tincidunt, justo libero.</p>
+      <p>SECOND-COLUMN-MARKER Third column: Vestibulum ante ipsum primis in faucibus orci luctus et ultrices.</p>
+      <p>THIRD-COLUMN-MARKER A little more padding content to make sure scrollLeft crop works correctly.</p>
+      <p>Even more content so we overflow into a third column for testing scrolling crop.</p>
+    </body></html>
+  '></iframe>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+  <script>
+    window.addEventListener('load', async () => {
+      const view = document.getElementById('view');
+      const win = view.contentWindow;
+      setTimeout(async () => {
+        const out = {};
+        try {
+          // Capturing the IFRAME ELEMENT itself (what's visible in its viewport)
+          const dataUrl = await window.htmlToImage.toPng(view, { pixelRatio: 1 });
+          out.iframeCapture = { len: dataUrl.length, prefix: dataUrl.slice(0,22) };
+        } catch (e) { out.iframeErr = e.message + ' :: ' + String(e.stack).slice(0,150); }
+        // move columns to page 2 by translating body
+        const st = view.contentDocument.body.style;
+        st.transform = 'translateX(-840px)';
+        await new Promise(r=>setTimeout(r,50));
+        try {
+          const dataUrl2 = await window.htmlToImage.toPng(view, { pixelRatio: 1 });
+          out.iframeCapture2 = { len: dataUrl2.length, prefix: dataUrl2.slice(0,22) };
+        } catch (e) { out.iframeErr2 = e.message; }
+        document.getElementById('out').textContent = JSON.stringify(out);
+      }, 500);
+    });
+  </script>
+  <pre id="out"></pre>
+</body>
+</html>

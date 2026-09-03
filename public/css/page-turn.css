@@ -1,8 +1,12 @@
-/* ── 翻页动画效果（5 种）────────────────────────────────────── */
+/* ── 翻页动画效果（5 种，真实内容过渡）──────────────────────────
+   设计模型：`.page-turn-sheet` 铺的是「旧页真实内容」的截图，
+   覆盖在已经真实切换好的新页之上；动画让旧页图层离场，
+   从而揭示下方真实的新页。因此所有效果都是"旧页离场"形态。
+────────────────────────────────────────────────────────────── */
 .epub-container,
 .mobi-container {
-  --page-turn-duration: 420ms;
-  --page-turn-ease: cubic-bezier(0.2, 0.76, 0.24, 1);
+  --page-turn-duration: 460ms;
+  --page-turn-ease: cubic-bezier(0.22, 0.72, 0.18, 1);
   position: relative;
   isolation: isolate;
 }
@@ -16,8 +20,11 @@
   width: 100%;
   pointer-events: none;
   overflow: hidden;
-  will-change: transform, opacity;
+  will-change: transform, opacity, width, clip-path;
+  contain: paint;
   transition: none;
+  background-color: var(--paper-bg, #fffdf9);
+  background-repeat: no-repeat;
 }
 
 .page-turn-sheet.is-animating {
@@ -28,36 +35,74 @@
               filter var(--page-turn-duration) var(--page-turn-ease);
 }
 
+.page-turn-sheet.is-pending {
+  opacity: 0;
+}
+
+.page-turn-sheet.is-hidden {
+  opacity: 0 !important;
+}
+
 /* ══════════════════════════════════════════════════════════════
    1. SLIDE — 平滑滑动（Kindle/微信读书风格）
-   整页从侧面推入，旧页面被推出
+   旧页整页从侧面推出，露出下方真实新页
    ══════════════════════════════════════════════════════════════ */
-.page-turn-sheet[data-effect="slide"] {
-  --turn-x: 100%;
-  background: var(--paper-bg, #fffdf9);
+.page-turn-sheet[data-effect="slide"],
+.page-turn-sheet[data-effect="cover"] {
+  --turn-x: 0%;
+  background-size: 100% 100%;
+  background-position: center;
   transform: translateX(var(--turn-x));
   box-shadow: -4px 0 20px rgba(0, 0, 0, 0.12);
 }
-.page-turn-sheet[data-effect="slide"][data-direction="next"] {
-  --turn-x: 100%;
-}
-.page-turn-sheet[data-effect="slide"][data-direction="prev"] {
+/* 下一页：旧页往左滑出（露出新页） */
+.page-turn-sheet[data-effect="slide"][data-direction="next"],
+.page-turn-sheet[data-effect="cover"][data-direction="next"] {
   --turn-x: -100%;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.14);
+}
+/* 上一页：旧页往右滑出（露出新页） */
+.page-turn-sheet[data-effect="slide"][data-direction="prev"],
+.page-turn-sheet[data-effect="cover"][data-direction="prev"] {
+  --turn-x: 100%;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.14);
+}
+/* 滑出方向一侧的纸张厚度阴影 */
+.page-turn-sheet[data-effect="slide"][data-direction="next"]::after,
+.page-turn-sheet[data-effect="cover"][data-direction="next"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  width: 12px;
+  content: '';
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.1), transparent);
+}
+.page-turn-sheet[data-effect="slide"][data-direction="prev"]::after,
+.page-turn-sheet[data-effect="cover"][data-direction="prev"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -6px;
+  width: 12px;
+  content: '';
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.1), transparent);
 }
 
 /* ══════════════════════════════════════════════════════════════
    2. FADE — 淡入淡出（安静优雅）
-   遮罩层覆盖当前页面，通过透明度变化过渡
+   旧页渐渐淡出，露出下方真实新页
    ══════════════════════════════════════════════════════════════ */
 .page-turn-sheet[data-effect="fade"] {
-  --turn-opacity: 0;
-  background: var(--paper-bg, #fffdf9);
+  --turn-opacity: 1;
+  background-size: 100% 100%;
+  background-position: center;
   opacity: var(--turn-opacity);
 }
 
 /* ══════════════════════════════════════════════════════════════
    3. FLIP — 仿真翻页（Apple Books 风格 3D 翻折）
-   页面边缘翻折，带阴影和纸张质感
+   旧页绕书脊翻折离场，露出真实新页
    ══════════════════════════════════════════════════════════════ */
 .epub-container[data-page-turn],
 .mobi-container[data-page-turn] {
@@ -66,40 +111,36 @@
 
 .page-turn-sheet[data-effect="flip"] {
   --turn-angle: 0deg;
-  --turn-width: 0%;
-  width: min(var(--turn-width), 17%);
-  transform: perspective(900px) rotateY(var(--turn-angle));
+  background-size: 100% 100%;
+  background-position: center;
+  transform: rotateY(var(--turn-angle));
+  transform-origin: right center;
   transform-style: preserve-3d;
-  background: linear-gradient(90deg, rgba(255, 253, 249, 0), rgba(255, 253, 249, 0.28) 62%, #fffdf9);
-  box-shadow: -18px 0 28px rgba(15, 23, 42, 0.2);
-  clip-path: ellipse(100% 72% at 100% 50%);
-  filter: drop-shadow(-12px 0 12px rgba(15, 23, 42, 0.18));
+  box-shadow: -20px 0 32px rgba(15, 23, 42, 0.22);
+  filter: drop-shadow(-14px 0 14px rgba(15, 23, 42, 0.2));
 }
-.page-turn-sheet[data-effect="flip"]::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 30px;
-  content: '';
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(15, 23, 42, 0.2));
-  filter: blur(1px);
-}
-
 .page-turn-sheet[data-effect="flip"][data-direction="next"] {
   right: 0;
   transform-origin: right center;
 }
-.page-turn-sheet[data-effect="flip"][data-direction="next"]::after {
-  left: 0;
-}
-
 .page-turn-sheet[data-effect="flip"][data-direction="prev"] {
   left: 0;
   transform-origin: left center;
-  background: linear-gradient(270deg, rgba(255, 253, 249, 0), rgba(255, 253, 249, 0.28) 62%, #fffdf9);
-  box-shadow: 18px 0 28px rgba(15, 23, 42, 0.2);
-  clip-path: ellipse(100% 72% at 0 50%);
-  filter: drop-shadow(12px 0 12px rgba(15, 23, 42, 0.18));
+  box-shadow: 20px 0 32px rgba(15, 23, 42, 0.22);
+  filter: drop-shadow(14px 0 14px rgba(15, 23, 42, 0.2));
+}
+/* 翻页时页缘的纸张弯曲质感 */
+.page-turn-sheet[data-effect="flip"]::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 42px;
+  content: '';
+  filter: blur(1px);
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.28));
+}
+.page-turn-sheet[data-effect="flip"][data-direction="next"]::after {
+  left: 0;
 }
 .page-turn-sheet[data-effect="flip"][data-direction="prev"]::after {
   right: 0;
@@ -108,65 +149,41 @@
 
 /* ══════════════════════════════════════════════════════════════
    4. COVER — 覆盖滑动（iOS 风格）
-   新页面从侧面滑入覆盖旧页面，旧页面不动
+   旧页从一侧滑出盖不遮挡，露出真实新页（与 slide 同形态但更柔和）
    ══════════════════════════════════════════════════════════════ */
 .page-turn-sheet[data-effect="cover"] {
-  --turn-x: 100%;
-  background: var(--paper-bg, #fffdf9);
+  --turn-x: 0%;
+  background-size: 100% 100%;
+  background-position: center;
   transform: translateX(var(--turn-x));
-  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.15);
-}
-.page-turn-sheet[data-effect="cover"][data-direction="next"] {
-  --turn-x: 100%;
-}
-.page-turn-sheet[data-effect="cover"][data-direction="prev"] {
-  --turn-x: -100%;
-}
-/* 覆盖滑动：新页面边缘带渐变阴影，模拟纸张厚度 */
-.page-turn-sheet[data-effect="cover"][data-direction="next"]::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 12px;
-  content: '';
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), transparent);
-}
-.page-turn-sheet[data-effect="cover"][data-direction="prev"]::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 12px;
-  content: '';
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.08), transparent);
 }
 
 /* ══════════════════════════════════════════════════════════════
    5. CURL — 卷页揭页（Google Play Books 风格）
-   从角落揭起页面，露出下一页
+   旧页从一侧揭起卷离，露出真实新页
    ══════════════════════════════════════════════════════════════ */
 .page-turn-sheet[data-effect="curl"] {
   --curl-progress: 0;
-  background: var(--paper-bg, #fffdf9);
+  background-size: cover;
+  background-position: center;
   clip-path: polygon(
+    0% 0%,
     calc(100% - var(--curl-progress) * 100%) 0%,
-    100% 0%,
-    100% 100%,
-    calc(100% - var(--curl-progress) * 100%) 100%
+    calc(100% - var(--curl-progress) * 100%) 100%,
+    0% 100%
   );
   box-shadow: -8px 0 20px rgba(0, 0, 0, 0.15);
 }
-/* 卷页阴影 — 模拟纸张弯曲产生的渐变阴影 */
+/* 卷起的页缘渐变阴影 */
 .page-turn-sheet[data-effect="curl"]::after {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 80px;
+  width: 96px;
   content: '';
   background: linear-gradient(90deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.06) 40%, transparent);
   filter: blur(2px);
-  opacity: var(--curl-progress);
+  opacity: clamp(0, calc(var(--curl-progress) * 1.8), 1);
 }
 .page-turn-sheet[data-effect="curl"][data-direction="next"] {
   right: 0;
@@ -177,10 +194,10 @@
 .page-turn-sheet[data-effect="curl"][data-direction="prev"] {
   left: 0;
   clip-path: polygon(
-    0% 0%,
     calc(var(--curl-progress) * 100%) 0%,
     calc(var(--curl-progress) * 100%) 100%,
-    0% 100%
+    100% 100%,
+    100% 0%
   );
 }
 .page-turn-sheet[data-effect="curl"][data-direction="prev"]::after {

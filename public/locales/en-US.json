@@ -109,7 +109,8 @@
     "pageTurnFade": "Fade",
     "pageTurnFlip": "Flip",
     "pageTurnCover": "Cover Slide",
-    "pageTurnCurl": "Curl"
+    "pageTurnCurl": "Curl",
+    "mobiPageTurnUnsupported": "Page turn effects are currently supported only for EPUB; MOBI uses its native animation"
   },
   "sidebar": {
     "collapse": "Collapse Library",

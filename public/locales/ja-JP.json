@@ -109,7 +109,8 @@
     "pageTurnFade": "フェード",
     "pageTurnFlip": "フリップ",
     "pageTurnCover": "カバースライド",
-    "pageTurnCurl": "カール"
+    "pageTurnCurl": "カール",
+    "mobiPageTurnUnsupported": "ページめくり効果は現在 EPUB のみ対応しています。MOBI は標準アニメーションを使用します"
   },
   "sidebar": {
     "collapse": "ライブラリを折りたたむ",

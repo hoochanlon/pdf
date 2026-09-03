@@ -179,6 +179,10 @@ export function updateDOMTranslations() {
 
     if (translation) {
       element.title = translation;
+      if (element.hasAttribute('data-tooltip')) {
+        element.setAttribute('data-tooltip', translation);
+        element.removeAttribute('title');
+      }
     }
   });
 

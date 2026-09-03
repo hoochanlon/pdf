@@ -1,12 +1,16 @@
-// ── 翻页动画引擎（支持 5 种效果）──────────────────────────────────
+// ── 翻页动画引擎（真实内容过渡 + 5 种效果）────────────────────────
+// 核心思路：翻页前后把「当前真实书页(iframe)」截图成图层，
+// 用「旧页图层离场」的方式揭示动画期间已经真实切换好的新页。
+// 这样手指/动画所见的都是真实书页内容，而非空白纸片。
+//
 // slide: 平滑滑动 (Kindle/微信读书风格)
 // fade:  淡入淡出 (安静优雅)
 // flip:  仿真翻页 (Apple Books 风格 3D 翻折)
 // cover: 覆盖滑动 (iOS 风格)
 // curl:  卷页揭页 (Google Play Books 风格)
 
-const ANIMATION_DURATION = 420;
-const COVER_DELAY = 90;
+const ANIMATION_DURATION = 460;
+const SETTLE_DELAY = 40;      // 导航完成后等待渲染稳定的时间
 const EFFECTS = ['slide', 'fade', 'flip', 'cover', 'curl'];
 const STORAGE_KEY = 'reader-page-turn-effect';
 const DEFAULT_EFFECT = 'flip';
@@ -43,6 +47,63 @@ export function getAvailableEffects() {
   return [...EFFECTS];
 }
 
+// ── 截图当前书页 ────────────────────────────────────────────────
+// 找到容器内当前显示的 iframe，用 html-to-image 截取其实际渲染视口，
+// 得到「当前真实书页」的图片。这是真实内容过渡的基础。
+const frameProviders = new WeakMap();
+
+// 注册「当前书页文档」提供者。由于 epub/mobi 渲染器内部结构不同
+// （如 foliate 用 closed shadow root，DOM 查询拿不到 iframe），
+// 各渲染器注册一个返回当前 contentDocument 的函数。
+export function setPageFrameProvider(container, provider) {
+  if (provider) frameProviders.set(container, provider);
+  else frameProviders.delete(container);
+}
+
+function getCurrentFrame(container) {
+  if (!container) return null;
+  const provider = frameProviders.get(container);
+  let provided = null;
+  if (typeof provider === 'function') {
+    provided = provider();
+  } else {
+    provided = container.querySelector('iframe')?.contentDocument ?? null;
+  }
+  const doc = provided?.document ?? (provided?.nodeType === 1 ? provided.ownerDocument : provided);
+  if (!doc) return null;
+  const viewport = provided?.viewport;
+  const width = viewport?.clientWidth || doc.documentElement?.clientWidth || doc.body?.clientWidth;
+  const height = viewport?.clientHeight || doc.documentElement?.clientHeight || doc.body?.clientHeight;
+  if (!width || !height) return null;
+  return {
+    doc,
+    width,
+    height,
+    x: Number(provided?.x) || 0,
+    y: Number(provided?.y) || 0,
+    el: provided?.el || doc.documentElement
+  };
+}
+
+let captureQueue = Promise.resolve();
+
+async function capturePage(container) {
+  const target = getCurrentFrame(container);
+  if (!target) return null;
+  const hti = window.htmlToImage;
+  if (!hti?.toPng) return null;
+  const run = () => hti.toPng(target.el, {
+    x: target.x,
+    y: target.y,
+    width: target.width,
+    height: target.height,
+    pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+    quality: 1,
+  }).then((dataUrl) => ({ dataUrl, width: target.width, height: target.height }));
+  const result = await (captureQueue = captureQueue.then(run, run));
+  return result;
+}
+
 // ── DOM 工具 ────────────────────────────────────────────────────
 function ensureSheet(container, direction) {
   let sheet = container.querySelector(':scope > .page-turn-sheet');
@@ -51,107 +112,109 @@ function ensureSheet(container, direction) {
     sheet.className = 'page-turn-sheet';
     container.appendChild(sheet);
   }
-  const effect = currentEffect;
   container.dataset.pageTurn = direction < 0 ? 'prev' : 'next';
+  sheet.dataset.turnId = String((Number(sheet.dataset.turnId) || 0) + 1);
   sheet.dataset.direction = direction < 0 ? 'prev' : 'next';
-  sheet.dataset.effect = effect;
+  sheet.dataset.effect = currentEffect;
   return sheet;
 }
 
-function removeSheet(container) {
-  container.querySelector(':scope > .page-turn-sheet')?.remove();
+function removeSheet(container, immediate, expectedSheet = null) {
+  const sheet = container.querySelector(':scope > .page-turn-sheet');
+  if (expectedSheet && sheet !== expectedSheet) return;
+  if (sheet) {
+    if (immediate) sheet.remove();
+    else {
+      sheet.classList.add('is-hidden');
+      const turnId = sheet.dataset.turnId;
+      window.setTimeout(() => {
+        if (container.querySelector(':scope > .page-turn-sheet') === sheet
+          && sheet.dataset.turnId === turnId) sheet.remove();
+      }, 300);
+    }
+  }
   delete container.dataset.pageTurn;
   activeContainers.delete(container);
   dragStates.delete(container);
 }
 
-function revealAfterNavigation(container, sheet, navigation) {
-  Promise.resolve(navigation).catch((error) => {
-    console.warn('[page-turn] 页面导航失败:', error);
-  });
+// 设置截图层：把 oldImg 作为真实旧页内容铺在 sheet 上（覆盖当前真实页）。
+// 同时由隐藏态转为可见，避免在截图完成前暴露出空白纸片。
+async function paintSheet(container, sheet, snap) {
+  if (!snap) return;
+  sheet.style.backgroundImage = `url(${snap.dataUrl})`;
+  sheet.style.backgroundSize = 'cover';
+  sheet.style.backgroundPosition = 'center';
+  sheet.style.backgroundRepeat = 'no-repeat';
+  sheet.style.setProperty('--page-w', `${snap.width}px`);
+  sheet.style.setProperty('--page-h', `${snap.height}px`);
+  sheet.classList.remove('is-pending');
+  void sheet.offsetWidth; // reflow to flush background before revealing
+}
+
+// 预先截图并铺上旧页图层（真实内容覆盖在当前真实页上）。
+async function prepareTurn(container, sheet) {
+  const snap = await capturePage(container);
+  if (!snap) return false;
+  // 截图前保持隐藏，避免空白纸片闪现
+  sheet.classList.add('is-pending');
+  await paintSheet(container, sheet, snap);
+  const direction = sheet.dataset.direction === 'prev' ? -1 : 1;
+  sheet.classList.remove('is-cancelled', 'is-hidden');
+  applyEffectStart(sheet, direction);
+  void sheet.offsetWidth; // force reflow
+  return true;
+}
+
+// 执行导航并在新页渲染稳定后让旧页图层离场，揭示真实新页。
+async function finalizeTurn(container, sheet, navigate) {
+  if (typeof navigate === 'function') {
+    try {
+      await Promise.resolve(navigate());
+    } catch (error) {
+      console.warn('[page-turn] 页面导航失败:', error);
+    }
+  }
   window.setTimeout(() => {
-    window.requestAnimationFrame(() => {
-      sheet.classList.add('is-animating');
-      applyEffectEnd(sheet);
-      window.setTimeout(() => removeSheet(container), ANIMATION_DURATION);
+    if (container.querySelector(':scope > .page-turn-sheet') !== sheet) return;
+    sheet.classList.add('is-animating');
+    applyEffectEnd(sheet);
+    const turnId = sheet.dataset.turnId;
+    const finish = () => {
+      if (sheet.dataset.turnId !== turnId) return;
+      removeSheet(container, false, sheet);
+    };
+    sheet.addEventListener('transitionend', finish, { once: true });
+    window.setTimeout(finish, ANIMATION_DURATION + 80);
+  }, SETTLE_DELAY);
+}
+
+// 让真实书页在动画开始时已就位：先截图当前页，铺上 sheet，再执行导航。
+async function runTurn(container, sheet, direction, navigate) {
+  const ok = await prepareTurn(container, sheet);
+  if (!ok) {
+    // 无法截图（例如还未初始化完成）：退回直接导航，不遮挡。
+    Promise.resolve(navigate()).catch((error) => {
+      console.warn('[page-turn] 页面导航失败:', error);
     });
-  }, COVER_DELAY);
+    window.setTimeout(() => removeSheet(container, true), 200);
+    return;
+  }
+  await finalizeTurn(container, sheet, navigate);
 }
 
-// ── 效果：初始态 / 拖拽态 / 结束态 ─────────────────────────────
-// 每个效果通过 CSS 自定义属性驱动，JS 只负责设值。
+// ── 效果状态控制 ────────────────────────────────────────────────
+// 统一约定：sheet 上铺的是「旧页真实内容」，离场动画揭示下方真实新页。
+const sign = (direction) => (direction < 0 ? 1 : -1);
 
-// 程序化翻页的起始态：覆盖层已就位，准备导航后落下
-function applyEffectCovered(sheet, direction, _containerWidth) {
-  const sign = direction < 0 ? 1 : -1;
+// 离场起点（完全覆盖在真实新页上）
+function applyEffectStart(sheet, direction) {
+  const s = sign(direction);
   switch (currentEffect) {
     case 'slide':
     case 'cover':
-      sheet.style.setProperty('--turn-x', `${sign * 100}%`);
-      sheet.style.setProperty('--turn-opacity', '1');
-      break;
-    case 'fade':
-      sheet.style.setProperty('--turn-opacity', '0');
-      break;
-    case 'flip':
-      sheet.style.setProperty('--turn-angle', `${sign * -18}deg`);
-      sheet.style.setProperty('--turn-width', '100%');
-      break;
-    case 'curl':
-      sheet.style.setProperty('--curl-progress', '0');
-      sheet.style.setProperty('--turn-opacity', '1');
-      break;
-  }
-}
-
-// 拖拽起始态：新页面完全在被推开的位置，随手指进入
-function applyEffectDragStart(sheet, direction, _containerWidth) {
-  const sign = direction < 0 ? 1 : -1;
-  switch (currentEffect) {
-    case 'slide':
-    case 'cover':
-      sheet.style.setProperty('--turn-x', `${sign * 100}%`);
-      break;
-    case 'fade':
-      sheet.style.setProperty('--turn-opacity', '0');
-      break;
-    case 'flip':
-      sheet.style.setProperty('--turn-angle', `${sign * -18}deg`);
-      sheet.style.setProperty('--turn-width', '0%');
-      break;
-    case 'curl':
-      sheet.style.setProperty('--curl-progress', '0');
-      break;
-  }
-}
-
-function applyEffectDrag(sheet, direction, progress, _containerWidth) {
-  const sign = direction < 0 ? 1 : -1;
-  const p = Math.max(0, Math.min(1, progress));
-  switch (currentEffect) {
-    case 'slide':
-      sheet.style.setProperty('--turn-x', `${sign * (1 - p) * 100}%`);
-      break;
-    case 'fade':
-      sheet.style.setProperty('--turn-opacity', String(p));
-      break;
-    case 'flip':
-      sheet.style.setProperty('--turn-width', `${p * 100}%`);
-      sheet.style.setProperty('--turn-angle', `${sign * (1 - p) * -18}deg`);
-      break;
-    case 'cover':
-      sheet.style.setProperty('--turn-x', `${sign * (1 - p) * 100}%`);
-      break;
-    case 'curl':
-      sheet.style.setProperty('--curl-progress', String(p));
-      break;
-  }
-}
-
-function applyEffectEnd(sheet) {
-  switch (currentEffect) {
-    case 'slide':
       sheet.style.setProperty('--turn-x', '0%');
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'fade':
       sheet.style.setProperty('--turn-opacity', '1');
@@ -159,34 +222,88 @@ function applyEffectEnd(sheet) {
     case 'flip':
       sheet.style.setProperty('--turn-angle', '0deg');
       sheet.style.setProperty('--turn-width', '100%');
-      break;
-    case 'cover':
-      sheet.style.setProperty('--turn-x', '0%');
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'curl':
-      sheet.style.setProperty('--curl-progress', '1');
+      sheet.style.setProperty('--curl-progress', '0');
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
   }
 }
 
-function applyEffectCancel(sheet, direction) {
-  const sign = direction < 0 ? 1 : -1;
+function applyEffectEnd(sheet) {
+  const s = sign(sheet.dataset.direction === 'prev' ? -1 : 1);
   switch (currentEffect) {
     case 'slide':
-      sheet.style.setProperty('--turn-x', `${sign * 100}%`);
+    case 'cover':
+      sheet.style.setProperty('--turn-x', `${s * 100}%`);
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'fade':
       sheet.style.setProperty('--turn-opacity', '0');
       break;
     case 'flip':
       sheet.style.setProperty('--turn-width', '0%');
-      sheet.style.setProperty('--turn-angle', `${sign * -18}deg`);
+      sheet.style.setProperty('--turn-angle', `${s * -18}deg`);
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
+    case 'curl':
+      sheet.style.setProperty('--curl-progress', '1');
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+  }
+}
+
+function applyEffectCancel(sheet, direction) {
+  const s = sign(direction);
+  switch (currentEffect) {
+    case 'slide':
     case 'cover':
-      sheet.style.setProperty('--turn-x', `${sign * 100}%`);
+      sheet.style.setProperty('--turn-x', '0%');
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+    case 'fade':
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+    case 'flip':
+      sheet.style.setProperty('--turn-width', '100%');
+      sheet.style.setProperty('--turn-angle', '0deg');
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
     case 'curl':
       sheet.style.setProperty('--curl-progress', '0');
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+  }
+}
+
+// ── 拖拽状态 ────────────────────────────────────────────────────
+// 拖动时 sheet 铺的是「当前真实页」，随手指移动；松手翻页后离场揭示真实新页。
+async function startDrag(container, sheet, direction) {
+  const snap = await capturePage(container);
+  if (snap && dragStates.get(container)?.sheet === sheet) await paintSheet(container, sheet, snap);
+}
+
+function updateDrag(sheet, direction, progress) {
+  const s = sign(direction);
+  const p = Math.max(0, Math.min(1, progress));
+  switch (currentEffect) {
+    case 'slide':
+    case 'cover':
+      // 旧页随手指滑向该方向，露出下方真实新页
+      sheet.style.setProperty('--turn-x', `${s * p * 100}%`);
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+    case 'fade':
+      sheet.style.setProperty('--turn-opacity', String(1 - p));
+      break;
+    case 'flip':
+      sheet.style.setProperty('--turn-angle', `${s * -p * 18}deg`);
+      sheet.style.setProperty('--turn-opacity', '1');
+      break;
+    case 'curl':
+      sheet.style.setProperty('--curl-progress', String(p));
+      sheet.style.setProperty('--turn-opacity', '1');
       break;
   }
 }
@@ -195,30 +312,21 @@ function applyEffectCancel(sheet, direction) {
 
 export function turnPage(container, direction, navigate) {
   if (!container || typeof navigate !== 'function' || activeContainers.has(container)) return false;
-
   activeContainers.add(container);
   const sheet = ensureSheet(container, direction);
-  const w = container.getBoundingClientRect().width || window.innerWidth;
-  sheet.classList.remove('is-animating', 'is-cancelled');
-  applyEffectCovered(sheet, direction, w);
-  sheet.offsetWidth; // force reflow
-
-  try {
-    revealAfterNavigation(container, sheet, navigate());
-  } catch (error) {
-    removeSheet(container);
-    throw error;
-  }
+  sheet.classList.remove('is-animating', 'is-cancelled', 'is-hidden');
+  applyEffectStart(sheet, direction);
+  void runTurn(container, sheet, direction, navigate);
   return true;
 }
 
 export function beginPageDrag(container, direction, width) {
   if (!container || activeContainers.has(container) || width <= 0) return false;
   const sheet = ensureSheet(container, direction);
-  sheet.classList.remove('is-animating', 'is-cancelled');
-  applyEffectDragStart(sheet, direction, width);
-  sheet.style.setProperty('--turn-opacity', currentEffect === 'fade' ? '0' : '1');
+  sheet.classList.remove('is-animating', 'is-cancelled', 'is-hidden');
+  applyEffectStart(sheet, direction);
   dragStates.set(container, { direction, width, sheet });
+  void startDrag(container, sheet, direction);
   return true;
 }
 
@@ -226,7 +334,7 @@ export function updatePageDrag(container, distanceX) {
   const drag = dragStates.get(container);
   if (!drag) return;
   const progress = Math.max(0, Math.min(1, Math.abs(distanceX) / drag.width));
-  applyEffectDrag(drag.sheet, drag.direction, progress, drag.width);
+  updateDrag(drag.sheet, drag.direction, progress);
 }
 
 export function endPageDrag(container, distanceX, navigate, threshold = 0.2) {
@@ -234,36 +342,31 @@ export function endPageDrag(container, distanceX, navigate, threshold = 0.2) {
   if (!drag) return false;
   const progress = Math.max(0, Math.min(1, Math.abs(distanceX) / drag.width));
   const shouldTurn = progress >= threshold;
-  drag.sheet.classList.add('is-animating');
-  if (shouldTurn) {
-    applyEffectEnd(drag.sheet);
-  } else {
-    applyEffectCancel(drag.sheet, drag.direction);
-  }
   dragStates.delete(container);
 
   if (!shouldTurn) {
-    window.setTimeout(() => removeSheet(container), ANIMATION_DURATION);
+    drag.sheet.classList.add('is-animating');
+    applyEffectCancel(drag.sheet, drag.direction);
+    window.setTimeout(() => removeSheet(container, false, drag.sheet), ANIMATION_DURATION + 30);
     return false;
   }
 
   activeContainers.add(container);
-  try {
-    revealAfterNavigation(container, drag.sheet, navigate?.());
-  } catch (error) {
-    removeSheet(container);
-    throw error;
-  }
+  drag.sheet.classList.remove('is-cancelled', 'is-hidden');
+  // 先瞬移回完全覆盖，避免导航期间从拖拽缝隙露出未切换的旧页
+  applyEffectStart(drag.sheet, drag.direction);
+  drag.sheet.offsetWidth; // force reflow
+  void finalizeTurn(container, drag.sheet, navigate);
   return true;
 }
 
 export function cancelPageDrag(container) {
-  if (!dragStates.has(container)) return;
-  const { sheet, direction } = dragStates.get(container);
-  sheet.classList.add('is-animating');
-  applyEffectCancel(sheet, direction);
+  const drag = dragStates.get(container);
+  if (!drag) return;
+  drag.sheet.classList.add('is-animating');
+  applyEffectCancel(drag.sheet, drag.direction);
   dragStates.delete(container);
-  window.setTimeout(() => removeSheet(container), ANIMATION_DURATION);
+  window.setTimeout(() => removeSheet(container, false, drag.sheet), ANIMATION_DURATION + 30);
 }
 
 export function isPageTurning(container) {

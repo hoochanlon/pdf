@@ -32,6 +32,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
 </head>
 <body>
   <header class="app-header">
@@ -404,8 +405,8 @@
           </div>
           <div class="epub-tools">
             <span class="epub-progress-value" id="mobi-progress-value">0%</span>
-            <div class="page-turn-selector" id="mobi-turn-selector" data-i18n-aria-label="reader.pageTurnEffect" aria-label="翻页效果">
-              <button class="reader-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <div class="page-turn-selector" id="mobi-turn-selector" data-i18n-title="reader.mobiPageTurnUnsupported" title="当前仅 EPUB 支持翻页效果，MOBI 使用原生动画" data-i18n-aria-label="reader.pageTurnEffect" aria-label="翻页效果">
+              <button class="reader-btn" type="button" aria-haspopup="listbox" aria-expanded="false" disabled>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
               </button>
               <div class="page-turn-dropdown" role="listbox" data-i18n-aria-label="reader.pageTurnEffect" aria-label="翻页效果" hidden></div>
