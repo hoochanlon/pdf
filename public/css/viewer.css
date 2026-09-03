@@ -411,6 +411,7 @@
   inset: 0 0 0 340px;
   overflow: auto;
   background: #525659;
+  touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -442,6 +443,7 @@
 
 .pdfViewer .textLayer {
   border-radius: 3px;
+  touch-action: pan-y;
 }
 
 .pdfViewer .page .loadingIcon {

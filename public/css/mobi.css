@@ -44,17 +44,16 @@
   height: 100%;
   overflow: auto;
   background: var(--paper-bg);
-  /* 禁用浏览器默认的触控板手势和滚动行为 */
-  overscroll-behavior: none;
-  touch-action: pan-y; /* 只允许垂直滚动，阻止横向手势 */
+  overscroll-behavior: contain;
+  /* foliate paginator handles horizontal touch scrolling itself. */
+  touch-action: none;
 }
 
 .mobi-container foliate-view {
   width: 100%;
   height: 100%;
   display: block;
-  /* 确保 foliate-view 不会拦截触摸事件 */
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 /* MOBI 使用与 EPUB 相同的工具栏样式，但可以独立调整 */

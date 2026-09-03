@@ -92,7 +92,7 @@ const SCROLL_CONTENT_RULES = {
 const PAGINATED_CONTENT_RULES = {
   body: {
     ...CONTENT_TYPOGRAPHY,
-    'touch-action': 'none !important',
+    'touch-action': 'pan-y !important',
     'user-select': 'none !important',
     '-webkit-user-select': 'none !important',
     '-webkit-touch-callout': 'none !important'
@@ -110,7 +110,7 @@ function installEPUBStyles(contents) {
     const frame = frameWindow.frameElement;
     if (!frame) return;
     installEPUBNavigation(frameDocument);
-    frame.style.touchAction = paginated ? 'none' : '';
+    frame.style.touchAction = paginated ? 'pan-y' : '';
     frame.style.userSelect = paginated ? 'none' : '';
     frame.style.webkitUserSelect = paginated ? 'none' : '';
     if (paginated) return;
@@ -222,11 +222,15 @@ function installEPUBNavigation(frameDocument) {
     }, { passive: true });
     frameDocument.addEventListener('pointermove', (event) => {
       if (!gesture || event.pointerId !== gesture.id) return;
-      // 桌面端鼠标拖动必须立即阻止默认行为（文本选择），不能等到达阈值才 preventDefault。
-      if (event.cancelable) event.preventDefault();
       const distanceX = event.clientX - gesture.x;
       const distanceY = event.clientY - gesture.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) gesture.dragged = true;
+      if (isHorizontalSwipe(distanceX, distanceY)) {
+        gesture.dragged = true;
+        if (event.cancelable) event.preventDefault();
+      } else if (event.pointerType === 'mouse' && event.cancelable) {
+        // 鼠标拖动不应触发文本选择，触屏则保留长按后的原生纵向手势。
+        event.preventDefault();
+      }
     }, { passive: false });
     frameDocument.addEventListener('pointerup', (event) => {
       if (!gesture || event.pointerId !== gesture.id) return;
@@ -287,10 +291,10 @@ function installEPUBNavigation(frameDocument) {
     const { deltaX, deltaY } = event;
     // 只处理明显的横向滚动：横向分量 > 垂直分量的 1.2 倍（触控板横滑）
     if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
-    
+
     clearTimeout(wheelResetTimer);
     wheelDeltaX += deltaX;
-    
+
     // 累积横向增量超过 40 触发翻页（物理书翻页习惯：向左滑 = 下一页，向右滑 = 上一页）
     const threshold = 40;
     if (Math.abs(wheelDeltaX) >= threshold) {
@@ -411,11 +415,11 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   state.epubRenderToken += 1;
   const renderToken = state.epubRenderToken;
   setEPUBPage(0, 0);
-  
+
   // 立即显示保存的进度（如果有）
   const savedProgress = getBookReadingProgress(filename);
   setEPUBProgress(savedProgress);
-  
+
   setEPUBStatus('loading', t('reader.loadingEpub'), t('reader.preparingContent'));
   container.replaceChildren();
 
@@ -444,7 +448,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
       allowScriptedContent: false
     });
     state.rendition = rendition;
-    
+
     rendition.hooks.content.register(installEPUBStyles);
     const isCurrentRendition = () => (
       requestId === state.requestId
@@ -478,7 +482,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     markBookOpened(filename);
     setEPUBStatus('ready');
     setupEPUBProgressBar();
-    
+
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);
     });
