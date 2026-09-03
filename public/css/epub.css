@@ -346,6 +346,12 @@
   cursor: grabbing;
 }
 
+.epub-container.webkit-no-page-animation,
+.epub-container.webkit-no-page-animation * {
+  transition: none !important;
+  animation: none !important;
+}
+
 .epub-container iframe {
   display: block;
   width: 100% !important;

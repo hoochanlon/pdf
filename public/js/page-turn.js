@@ -33,6 +33,10 @@ function detectWebKitLike() {
 }
 const IS_WEBKIT_LIKE = detectWebKitLike();
 
+export function isEPUBPageTurnAnimationSupported() {
+  return !IS_WEBKIT_LIKE;
+}
+
 const ANIMATION_DURATION = 460;
 const SETTLE_DELAY = IS_WEBKIT_LIKE ? 0 : 40;
 const CAPTURE_TIMEOUT = IS_WEBKIT_LIKE ? 300 : 1200;
@@ -581,14 +585,33 @@ export function isPageTurning(container) {
  * 调用方（如 epubNext/epubPrev）可用它在最外层做短路，完全避开 turnPage 的
  * Promise + sheet 创建 + activeContainers 开销。
  *
- * 目前三种情况返回 true：
- *   1) WebKit 全局 probe 已知失败（session 级永久 skip）
+ * 返回 true 的情况：
+ *   1) WebKit 且 probe 尚未确认截图可行（默认 bypass，不等 probe 完成）
+ *      — EPUB 用 blob iframe，WebKit 不可能截到内容，probe 只会确认失败
  *   2) 容器级 probe 正在跑（testing 期间不产生 sheet）
  *   3) 连续截图失败的短暂 bypass 窗口
  */
 export function isPageTurnBypassed(container) {
-  if (IS_WEBKIT_LIKE && WEBKIT_GLOBAL_PROBE_KNOWN && !WEBKIT_GLOBAL_PROBE_OK) return true;
+  // WebKit 始终禁用截图翻页，避免 Safari 保留异步 transition/transform 状态。
+  if (IS_WEBKIT_LIKE) return true;
   if (probeResults.get(container) === 'testing') return true;
   const s = captureStats.get(container);
   return Boolean(s && Date.now() < s.bypassUntil);
+}
+
+// ── bypass 模式导航锁（与 activeContainers 共用同一把锁）──────────
+// Safari/EPUB blob iframe 场景下，bypass 路径不走 turnPage（不产生 sheet/动画），
+// 但仍然需要一个「正在导航中」的互斥标记：
+//   - 防止用户快速连按方向键把多个 rendition.next() 堆进队列
+//   - 让 isPageTurning() 在 bypass 导航期间也返回 true，避免
+//     pointer/touch handler 在翻页过程中又启动拖拽
+// 复用 activeContainers，不额外引入新数据结构：turnPage() / runTurn()
+// 已经用它来做动画期的互斥，bypass 导航期直接占位即可。
+export function acquireNavLock(container) {
+  if (!container || activeContainers.has(container)) return false;
+  activeContainers.add(container);
+  return true;
+}
+export function releaseNavLock(container) {
+  if (container) activeContainers.delete(container);
 }

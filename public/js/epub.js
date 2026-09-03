@@ -19,6 +19,7 @@ import { t } from './i18n.js';
 import {
   beginPageDrag, cancelPageDrag, endPageDrag,
   isPageTurning, isPageTurnBypassed, turnPage, updatePageDrag, warmupPageTurnCapture,
+  acquireNavLock, releaseNavLock,
 } from './page-turn.js';
 import { installEPUBStyles } from './epub-styles.js?v=16';
 import { setupPageTurnSelector } from './epub-navigation.js?v=16';
@@ -221,7 +222,17 @@ export async function epubNext() {
     // （否则即便内部 fallback 路径 0 等待，仍会付出：创建 div+加类+removeSheet+WeakMap add/delete
     //   + async/await 微任务调度 的开销 → 主观感受是「按键有延迟」）
     if (isPageTurnBypassed(container)) {
-      try { await state.rendition.next(); } catch (err) { console.warn('EPUB 翻下一页失败:', err); }
+      // bypass 模式下 turnPage() 不会被调用 → 得自己拿 activeContainers 这把互斥锁：
+      //  1) 防止连按把多个 rendition.next() 塞成队列（WebKit 单线程+relocated 回调重，队列会雪崩）
+      //  2) 让 isPageTurning() 返回 true，pointer/touch handler 不会在翻页半途中又起一个 drag
+      if (!acquireNavLock(container)) return;
+      try {
+        await state.rendition.next();
+      } catch (err) {
+        console.warn('EPUB 翻下一页失败:', err);
+      } finally {
+        releaseNavLock(container);
+      }
       return;
     }
     await new Promise((resolve, reject) => {
@@ -238,7 +249,14 @@ export async function epubPrev() {
   if (state.epubMode === 'paginated') {
     const container = $('#epub-container');
     if (isPageTurnBypassed(container)) {
-      try { await state.rendition.prev(); } catch (err) { console.warn('EPUB 翻上一页失败:', err); }
+      if (!acquireNavLock(container)) return;
+      try {
+        await state.rendition.prev();
+      } catch (err) {
+        console.warn('EPUB 翻上一页失败:', err);
+      } finally {
+        releaseNavLock(container);
+      }
       return;
     }
     await new Promise((resolve, reject) => {

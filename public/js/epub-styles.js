@@ -4,6 +4,46 @@
 import { state } from './state.js';
 import { installEPUBNavigation } from './epub-navigation.js?v=16';
 
+// ── WebKit 内核检测（与 epub-navigation.js / page-turn.js 保持一致）────────
+// 在样式层同样需要检测，用来决定是否注入"禁用翻页过渡"的 CSS：
+//   Safari 的合成层调度在 iframe 失焦（或被降优先级）时会把列过渡掐成落地，
+//   与其随机有/随机无动画，不如 WebKit 统一禁用 → 一致的即时翻页体验。
+function isWebKitLike(navigatorRef = navigator) {
+  const ua = (navigatorRef.userAgent || '');
+  const platform = String(navigatorRef.platform || '');
+  const isIOSLike = /iPad|iPhone|iPod/i.test(platform)
+    || (platform === 'MacIntel' && typeof navigatorRef.maxTouchPoints === 'number' && navigatorRef.maxTouchPoints > 1);
+  const isDesktopSafari = /^((?!chrome|crios|android|edg|opr|fxios|fxiOS).)*safari/i.test(ua)
+    || (((navigatorRef.vendor || '')).includes('Apple') && !/chrome|crios|edg|opr|fxios|fxiOS/i.test(ua));
+  return isIOSLike || isDesktopSafari;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Safari / iOS WebKit 专属：强制关闭翻页相关的过渡与动画
+// 作用域：html（含 epub.js 渲染层 wrapper）、body、及其所有后代。
+// 不影响字体/颜色等排版属性，只针对时间性动画/过渡下手。
+// ═══════════════════════════════════════════════════════════════════
+const WEBKIT_NO_ANIMATION_RULES = {
+  html: {
+    scrollBehavior: 'auto !important',
+  },
+  body: {
+    scrollBehavior: 'auto !important',
+  },
+  'html, body, body > *, body > * > *': {
+    transition: 'none !important',
+    animation: 'none !important',
+  },
+  // epub.js default manager 用 transform: translateX() 推动列切换。
+  // 把 html / documentElement 这一层的过渡和动画强制关掉，
+  // 让 transform 直接跳到目标值。
+  'html, :root': {
+    transition: 'none !important',
+    animation: 'none !important',
+    transform: 'none',
+  },
+};
+
 // ── 排版基础：两种阅读模式共享，只管字体与配色，不干预布局。──────────
 export const CONTENT_TYPOGRAPHY = {
   'font-family': '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif !important',
@@ -57,13 +97,26 @@ export const PAGINATED_CONTENT_RULES = {
  */
 export function installEPUBStyles(contents) {
   const paginated = state.epubMode === 'paginated';
-  contents.addStylesheetRules(paginated ? PAGINATED_CONTENT_RULES : SCROLL_CONTENT_RULES);
+  const baseRules = paginated ? PAGINATED_CONTENT_RULES : SCROLL_CONTENT_RULES;
+
+  // Safari / iOS WebKit + 分页模式：叠加"全关过渡"规则，保证即时翻页，不随时间随机失效。
+  const webkitLike = (() => {
+    try { return isWebKitLike(contents.window?.navigator || navigator); }
+    catch (_) { return false; }
+  })();
+  const effectiveRules = (paginated && webkitLike)
+    ? mergeRulesDeep(baseRules, WEBKIT_NO_ANIMATION_RULES)
+    : baseRules;
+  contents.addStylesheetRules(effectiveRules);
 
   try {
     const frameWindow = contents.window;
     const frameDocument = contents.document;
     const frame = frameWindow.frameElement;
     if (!frame) return;
+    if (paginated && webkitLike) {
+      frame.closest('.epub-container')?.classList.add('webkit-no-page-animation');
+    }
     installEPUBNavigation(frameDocument, frame, frameWindow);
     frame.style.touchAction = paginated ? 'none' : '';
     frame.style.userSelect = paginated ? 'none' : '';
@@ -93,4 +146,19 @@ export function installEPUBStyles(contents) {
   } catch (error) {
     console.warn('EPUB 内容尺寸同步失败:', error);
   }
+}
+
+/**
+ * 浅+深合并两份 CSS 规则对象：
+ *   - 键相同 → 把后者的属性覆盖到前者（保留前者独有的属性）
+ *   - 键不同 → 并集
+ * 用于把 WEBKIT_NO_ANIMATION_RULES 的"关过渡"属性插到 baseRules 的已有选择器上，
+ * 同时保留 baseRules 的排版/颜色属性。
+ */
+function mergeRulesDeep(base, extra) {
+  const out = { ...base };
+  for (const selector of Object.keys(extra)) {
+    out[selector] = out[selector] ? { ...out[selector], ...extra[selector] } : { ...extra[selector] };
+  }
+  return out;
 }

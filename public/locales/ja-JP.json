@@ -110,6 +110,7 @@
     "pageTurnFlip": "フリップ",
     "pageTurnCover": "カバースライド",
     "pageTurnCurl": "カール",
+    "epubPageTurnChromeOnly": "EPUB のアニメーションページめくりは Chrome のみ対応しています",
     "mobiPageTurnUnsupported": "ページめくり効果は現在 EPUB のみ対応しています。MOBI は標準アニメーションを使用します"
   },
   "sidebar": {

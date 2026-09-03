@@ -10,23 +10,22 @@ import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
 import {
   beginPageDrag, cancelPageDrag, endPageDrag,
   getPageTurnEffect, getAvailableEffects, isPageTurning,
-  setPageTurnEffect, turnPage, updatePageDrag,
+  setPageTurnEffect, turnPage, updatePageDrag, isEPUBPageTurnAnimationSupported,
 } from './page-turn.js';
 import { toggleTOC, epubNext, epubPrev } from './epub.js?v=16';
 
-// ── 翻页节流（键盘/点击/滑动共用，保证同一次输入窗口不会重复翻页）──────
-// 420ms 阈值：给 rendition.next() 足够时间完成，避免 Safari 慢列重算期间又来第二个请求。
-// 之前 320ms 在一次触控板动量手势（~600ms 持续期）内可能过 2 次，现 420 只能过 1 次。
+// ── 翻页节流（按来源区分，保证体验）──────────────────────────────
+// keyboard: 100ms  → 快速连按方向键可达 10 页/秒，主观无延迟
+// wheel:    420ms  → 触控板动量手势不会连翻（配合 wheelGestureLocked 双保险）
+// default:  300ms  → 点击/触摸等
 let lastEPUBNavAt = 0;
-const NAV_THROTTLE_MS = 420;
-// 最近一次 wheel 导致的 requestEPUBNav 时间戳 —— 用来给宿主层/iframe 层的双层
-// wheel 监听器做去重（WebKit 下两层都挂了）。
+const NAV_THROTTLE = { keyboard: 100, wheel: 420, click: 300, touch: 300, default: 300 };
 let lastWheelNavAt = 0;
-const WHEEL_DOUBLE_SCAN_WINDOW = 80; // 80ms 内两次 requestEPUBNav 且来源都是 wheel 算重复
+const WHEEL_DOUBLE_SCAN_WINDOW = 80;
 export function requestEPUBNav(direction, meta = {}) {
   const now = Date.now();
-  if (now - lastEPUBNavAt < NAV_THROTTLE_MS) return;
-  // 如果这次是 wheel 触发的，且 80ms 内已经有一次 wheel 触发了导航（很可能是双层监听重复），跳过
+  const throttle = NAV_THROTTLE[meta.source] || NAV_THROTTLE.default;
+  if (now - lastEPUBNavAt < throttle) return;
   if (meta.isWheel && now - lastWheelNavAt < WHEEL_DOUBLE_SCAN_WINDOW) return;
   lastEPUBNavAt = now;
   if (meta.isWheel) lastWheelNavAt = now;
@@ -87,6 +86,32 @@ export function setupPageTurnSelector() {
   const dropdown = wrap.querySelector('.page-turn-dropdown');
   if (!trigger || !dropdown) return;
 
+  // 先把当前语言对应的 tooltip 写到 wrap 上（无副作用：支持时只是设置一个属性；不支持时会被 hover 显示）
+  const applyTooltip = () => {
+    if (isEPUBPageTurnAnimationSupported()) {
+      wrap.removeAttribute('data-tooltip');
+      wrap.removeAttribute('title');
+    } else {
+      const msg = t('reader.epubPageTurnChromeOnly');
+      // 用 data-tooltip 直接生效；title 再留一份兜底（aria 提示）
+      wrap.setAttribute('data-tooltip', msg);
+      wrap.setAttribute('title', msg);
+    }
+  };
+  applyTooltip();
+
+  if (!isEPUBPageTurnAnimationSupported()) {
+    trigger.disabled = true;
+    dropdown.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    // 语言切换：重新本地化 tooltip
+    if (!wrap.dataset.i18nTitleBound) {
+      wrap.dataset.i18nTitleBound = '1';
+      window.addEventListener(LANGUAGE_CHANGE_EVENT, applyTooltip);
+    }
+    return;
+  }
+
   renderPageTurnDropdown(wrap);
 
   if (epubTurnSelectorBound) return; // 已绑定过，仅刷新语言
@@ -106,7 +131,10 @@ export function setupPageTurnSelector() {
     trigger.setAttribute('aria-expanded', 'false');
   });
 
-  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => renderPageTurnDropdown(wrap));
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => {
+    applyTooltip();
+    renderPageTurnDropdown(wrap);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -165,8 +193,8 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const width = viewWidth || frameWindow.innerWidth || iframe?.clientWidth || 0;
     if (!width) return;
     const edge = Math.min(width * 0.25, 140);
-    if (clientX <= edge) requestEPUBNav(-1);
-    else if (clientX >= width - edge) requestEPUBNav(1);
+    if (clientX <= edge) requestEPUBNav(-1, { source: 'click' });
+    else if (clientX >= width - edge) requestEPUBNav(1, { source: 'click' });
   }
 
   const navigateBySwipe = (dx, dy, event, target) => {
@@ -175,7 +203,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     suppressClickUntil = Date.now() + 360;
     if (event.cancelable) event.preventDefault();
     // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
-    endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+    endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
   };
   const suppressDraggedClick = (event) => {
     if (Date.now() >= suppressClickUntil) return;
@@ -200,7 +228,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
       ?? codeKeys[event.code];
     if (!direction) return;
     if (event.cancelable) event.preventDefault();
-    requestEPUBNav(direction);
+    requestEPUBNav(direction, { source: 'keyboard' });
   };
   try {
     frameDocument.addEventListener('keydown', handleFrameKeydown, true);
@@ -405,7 +433,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     wheelDeltaX += deltaX;
     if (Math.abs(wheelDeltaX) >= WHEEL_THRESHOLD) {
       if (event.cancelable) event.preventDefault();
-      requestEPUBNav(wheelDeltaX > 0 ? 1 : -1, { isWheel: true });
+      requestEPUBNav(wheelDeltaX > 0 ? 1 : -1, { isWheel: true, source: 'wheel' });
       wheelGestureLocked = true;
       // 安全兜底：即便 idleTimer 永远重置（比如用户一直摇鼠标），700ms 后也强制解锁
       clearTimeout(wheelLockTimer);
@@ -430,6 +458,23 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
   const bound = container[hostBindingKey];
 
   function keepHostFocus() {
+    if (isWebKitLike) {
+      // —— WebKit 专属：只做外层 container.focus，禁止 iframe.blur() ——
+      // 背景：Safari 的合成层调度器只要收到 iframe.contentWindow 的 blur 事件，
+      //   就会把 iframe 内所有 CSS transition/transform 动画降级为"空闲时再跑"，
+      //   实际表现就是内部列过渡动画被静默跳过。而且这是一个状态，不是瞬时事件——
+      //   一旦 blur 过，不重新 body.focus() 就再也不做动画。所以不能主动 blur。
+      // 为什么只需 focus container 就够了：
+      //   1) 宿主层键盘走 capture，不依赖外层 activeElement 位置；
+      //   2) 让外层 activeElement === container，阻止 Tab / 其他焦点漂移影响
+      //      宿主层其他控件（搜索框、按钮等）的可见焦点状态。
+      if (document.activeElement !== container) {
+        try { container.focus({ preventScroll: true }); } catch (_) { /* 忽略 */ }
+      }
+      return;
+    }
+    // 非 WebKit（Chrome / Gecko / 其他）：iframe 失焦不会影响内部合成层动画，
+    // 保持原逻辑——blur iframe 确保事件不被它"吞掉"。
     try { iframe.blur(); } catch (_) { /* 忽略 */ }
     if (document.activeElement !== container) {
       try { container.focus({ preventScroll: true }); } catch (_) { /* 忽略 */ }
@@ -441,8 +486,11 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     window.setTimeout(keepHostFocus, 250);
   }
 
-  // 焦点守护：focusin 捕获（主）+ 2000ms 轮询（兜底）。
+  // 焦点守护：focusin 捕获（主）+ 轮询（兜底）。
   // 不使用 120ms 暴力轮询，避免每帧 blur/focus 打断合成层动画。
+  // WebKit/Safari：轮询缩短到 500ms — 翻页后 iframe 内容会抢焦点，长间隔意味着
+  // 最多 ~2s 的"按键走不可靠 iframe 路径"窗口，就是用户说的"第一下按没反应"。
+  // 500ms 足够不打断动画（< 10fps 的频率），又能把"焦点漂移无响应"的窗口压缩到 < 0.5s。
   if (!bound.focusGuardsInstalled) {
     bound.focusGuardsInstalled = true;
     const onFocusIn = (event) => {
@@ -457,6 +505,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     document.addEventListener('focusin', onFocusIn, true);
     bound.focusinHandler = onFocusIn;
 
+    const FOCUS_GUARD_INTERVAL = isWebKitLike ? 500 : 2000;
     bound.focusGuardTimer = window.setInterval(() => {
       if (!document.body.contains(container)) {
         window.clearInterval(bound.focusGuardTimer);
@@ -469,7 +518,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
       if (active === currentFrame || (active && currentFrame.contains?.(active))) {
         keepHostFocus();
       }
-    }, 2000);
+    }, FOCUS_GUARD_INTERVAL);
   }
 
   // 宿主层捕获阶段 keydown：在 iframe 拿到事件之前先兜底（Safari 需要）
@@ -488,14 +537,34 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
         ?? navKeys[event.key?.toLowerCase?.()]
         ?? codeKeys[event.code];
       if (!direction) return;
-      const ae = document.activeElement;
-      const currentFrame = container.querySelector('iframe');
-      const frameOwnsFocus = currentFrame && (ae === currentFrame
-        || (ae && currentFrame.contains?.(ae))
-        || (event.target && event.target.ownerDocument !== document));
-      if (frameOwnsFocus) return;
+
+      // —— WebKit 专属修复：不做 frameOwnsFocus 判断 ——
+      // 问题背景：当焦点"看起来"在 iframe 里（activeElement === iframe），
+      //   原本代码会 return，假设「iframe 内部的 6 路 keydown listener 会处理」。
+      //   但 Safari/WebKit 的 blob: iframe 在章节切换/重渲染后，虽然 document.activeElement
+      //   仍指向 iframe 元素，可键盘事件实际派发路径非常不稳定：
+      //     - 有时候只到宿主的 capture 阶段、进不了 iframe 内的 listener
+      //     - 有时候 iframe 内 listener 会丢失 1~2 个事件（章节刚换完尤其明显）
+      //   结果就是用户"按了没反应"或"反应慢半拍"。
+      // 修复策略：WebKit 下，宿主 capture 阶段永远处理导航键（requestEPUBNav 的
+      //   100ms keyboard 节流会挡住 iframe 内 listener 的二次触发，不会连翻）。
+      //   处理完顺手把焦点拉回宿主层（keepHostFocus），保证后续按键的事件模型一致。
+      if (!isWebKitLike) {
+        const ae = document.activeElement;
+        const currentFrame = container.querySelector('iframe');
+        const frameOwnsFocus = currentFrame && (ae === currentFrame
+          || (ae && currentFrame.contains?.(ae))
+          || (event.target && event.target.ownerDocument !== document));
+        if (frameOwnsFocus) return;
+      }
+
       if (event.cancelable) event.preventDefault();
-      requestEPUBNav(direction);
+      requestEPUBNav(direction, { source: 'keyboard' });
+      // ⚠️ 注意：这里**故意不**调用 keepHostFocus()。
+      // rendition.next() 是异步的，内部 CSS 列过渡在微任务之后才启动；
+      // 如果在这里同步 blur iframe，WebKit 的 iframe 失焦降优先级策略
+      // 会直接掐掉还没启动的合成层动画 → "翻页了但没有平滑动画"。
+      // 焦点对齐交给 500ms 轮询 + focusin 捕获即可，不影响按键响应。
     };
     document.addEventListener('keydown', onCaptureKeydown, true);
     bound.captureKeydownHandler = onCaptureKeydown;
@@ -545,7 +614,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
       hostDeltaX += deltaX;
       if (Math.abs(hostDeltaX) >= HOST_WHEEL_THRESHOLD) {
         if (event.cancelable) event.preventDefault();
-        requestEPUBNav(hostDeltaX > 0 ? 1 : -1, { isWheel: true });
+        requestEPUBNav(hostDeltaX > 0 ? 1 : -1, { isWheel: true, source: 'wheel' });
         hostGestureLocked = true;
         clearTimeout(hostLockTimer);
         hostLockTimer = window.setTimeout(() => {
@@ -624,7 +693,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(event) - cur.y;
     window.setTimeout(clearCachedRectLater, 0);
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
       return;
     }
     if (!cur.dragged) navigateByClickX(localXFromEvent(event), hostWidth());
@@ -664,7 +733,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(event) - cur.y;
     clearCachedRectLater();
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
       return;
     }
     navigateByClickX(localXFromEvent(event), hostWidth());
@@ -701,7 +770,7 @@ export function installEPUBNavigation(frameDocument, iframe = null, iframeWindow
     const dy = localYFromEvent(t) - cur.y;
     clearCachedRectLater();
     if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
+      endPageDrag(container, dx, () => requestEPUBNav(dx < 0 ? -1 : 1, { source: 'touch' }), 0.15);
       return;
     }
     navigateByClickX(localXFromEvent(t), hostWidth());

@@ -110,6 +110,7 @@
     "pageTurnFlip": "仿真翻页",
     "pageTurnCover": "覆盖滑动",
     "pageTurnCurl": "卷页揭页",
+    "epubPageTurnChromeOnly": "EPUB 动画翻页仅支持 Chrome",
     "mobiPageTurnUnsupported": "当前仅 EPUB 支持翻页效果，MOBI 使用原生动画"
   },
   "sidebar": {

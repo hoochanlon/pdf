@@ -110,6 +110,7 @@
     "pageTurnFlip": "Flip",
     "pageTurnCover": "Cover Slide",
     "pageTurnCurl": "Curl",
+    "epubPageTurnChromeOnly": "Animated EPUB page turning is supported only in Chrome",
     "mobiPageTurnUnsupported": "Page turn effects are currently supported only for EPUB; MOBI uses its native animation"
   },
   "sidebar": {
