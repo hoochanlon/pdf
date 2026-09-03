@@ -62,3 +62,7 @@ sudo kill $(sudo lsof -t -i:3000) 2>/dev/null
 - Flowoss：https://www.flowoss.com
 - Foliate.js：https://github.com/johnfactotum/foliate-js
 
+## 下一步计划
+
+* [ ] 优化 Safari 阅读 EPUB 体验。
+

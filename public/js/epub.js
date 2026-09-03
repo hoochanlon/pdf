@@ -1,768 +1,105 @@
-// EPUB 渲染模块
+// EPUB 阅读器主入口（编排层）
+// 本文件只负责：
+//   1) 暴露给 app.js / 其他模块的公共 API（renderEPUB / epubNext / epubPrev / … / resetEPUBState / toggleTOC）
+//   2) 编排电子书生命周期：status 面板 → ePub() book → rendition → hooks → relocated → TOC → locations
+//   3) 全局小工具（setEPUBStatus / setEPUBPage / cfiValue / safelyDestroy / waitForStage）
+//
+// 所有具体业务实现均拆分到：
+//   epub-styles.js            CSS 规则 + 注入 + 安装导航
+//   epub-navigation.js        iframe 内/宿主层翻页交互 + 效果选择器 UI
+//   epub-progress.js          进度条拖动 + relocated 更新 state / 存储
+//   epub-toc.js               目录加载与渲染
+//   epub-locations-cache.js   locations 生成缓存
+//
+// 与 app.js 的公共 API 保持不变（app.js 的 import 列表不用改）。
 import { state } from './state.js';
 import { $ } from './utils.js';
 import { updateBookProgress, markBookOpened, getBookReadingProgress } from './reading.js';
-import { t, LANGUAGE_CHANGE_EVENT } from './i18n.js';
-import { beginPageDrag, cancelPageDrag, endPageDrag, getPageTurnEffect, getAvailableEffects, isPageTurning, setPageTurnEffect, turnPage, updatePageDrag } from './page-turn.js';
+import { t } from './i18n.js';
+import {
+  beginPageDrag, cancelPageDrag, endPageDrag,
+  isPageTurning, isPageTurnBypassed, turnPage, updatePageDrag, warmupPageTurnCapture,
+} from './page-turn.js';
+import { installEPUBStyles } from './epub-styles.js?v=16';
+import { setupPageTurnSelector } from './epub-navigation.js?v=16';
+import {
+  cfiValue,
+  clearEPUBProgressTracking,
+  setEPUBProgress,
+  setupEPUBProgressBar,
+  updateSavedEPUBProgress,
+  updateEPUBLocation,
+  updateEPUBChapterControls,
+} from './epub-progress.js?v=16';
+import { loadEPUBTOC } from './epub-toc.js?v=16';
+import { generateEPUBLocations } from './epub-locations-cache.js?v=16';
 
-async function waitForLibrary(name, predicate, timeout = 8000) {
-  const startedAt = Date.now();
-  while (!predicate()) {
-    if (Date.now() - startedAt >= timeout) {
-      throw new Error(t('reader.timeoutError', null, { label: name }));
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
-  }
-}
+// ═══════════════════════════════════════════════════════════════════
+// 全局小工具
+// ═══════════════════════════════════════════════════════════════════
 
-async function waitForStage(promise, stageKey, timeout = 15000) {
-  let timer;
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = window.setTimeout(() => reject(new Error(t('reader.timeoutError', null, { label: t(stageKey) }))), timeout);
-  });
-  return Promise.race([Promise.resolve(promise), timeoutPromise]).finally(() => window.clearTimeout(timer));
-}
-
-function setEPUBStatus(status, title, detail = '') {
+// EPUB 阅读器状态栏：idle / loading / ready / error
+export function setEPUBStatus(status, title, detail = '') {
   state.epubStatus = status;
-  const panel = $('#epub-status');
-  panel.classList.toggle('is-hidden', status === 'ready');
-  panel.classList.toggle('is-error', status === 'error');
-  $('#epub-status-title').textContent = title;
-  $('#epub-status-detail').textContent = detail;
+  const box = $('#epub-status');
+  const titleEl = $('#epub-status-title');
+  const detailEl = $('#epub-status-detail');
+  if (titleEl) titleEl.textContent = title || '';
+  if (detailEl) detailEl.textContent = detail || '';
+  if (!box) return;
+  box.classList.remove('is-loading', 'is-error', 'is-ready', 'is-hidden');
+  if (status === 'loading') box.classList.add('is-loading');
+  else if (status === 'error') box.classList.add('is-error');
+  else if (status === 'ready') box.classList.add('is-ready', 'is-hidden');
+  else box.classList.add('is-hidden');
 }
 
-function setEPUBPage(current, total) {
-  // 保留函数避免其他地方的调用报错，但不再更新 UI
-  state.epubCurrentPage = current;
-  state.epubTotalPages = total;
+// 状态/通知：当前页 / 总页数（不直接改 DOM 展示，UI 已统一用进度条百分比）
+export function setEPUBPage(current, total) {
+  state.epubCurrentPage = Number(current) || 0;
+  state.epubTotalPages = Number(total) || 0;
 }
 
-function cfiValue(cfi) {
-  return typeof cfi === 'string' ? cfi : cfi?.toString?.() || '';
+// 复用 utils.safelyDestroy 的语义，避免在本文件引入 utils 除 $ 外的循环依赖
+export function safelyDestroy(resource, label) {
+  if (!resource) return;
+  const fns = [
+    () => typeof resource.destroy === 'function' && resource.destroy(),
+    () => typeof resource.close === 'function' && resource.close(),
+    () => typeof resource.dispose === 'function' && resource.dispose(),
+  ];
+  for (const fn of fns) {
+    try { fn(); return; } catch (error) {
+      console.warn(`${label || '资源'} 清理失败:`, error);
+    }
+  }
 }
 
-function safelyDestroy(resource, label) {
-  if (!resource?.destroy) return;
+// 渲染流程阶段追踪器：带超时的 Promise 包装
+// 配合 reader.showStage / reader.clearStage 显示到右上角状态面板（面板若不存在则静默）。
+async function waitForStage(promise, stageKey, timeout = 15000) {
+  const reader = window.reader;
+  if (reader?.showStage) reader.showStage(stageKey);
+  let timeoutId = 0;
   try {
-    const result = resource.destroy();
-    if (result?.catch) {
-      void result.catch((error) => console.warn(`${label}清理失败:`, error));
-    }
-  } catch (error) {
-    console.warn(`${label}清理失败:`, error);
-  }
-}
-
-// 排版基础：两种阅读模式共享，只管字体与配色，不干预布局。
-const CONTENT_TYPOGRAPHY = {
-  'font-family': '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif !important',
-  'font-size': 'clamp(16px, 1.15vw, 19px) !important',
-  'line-height': '1.85 !important',
-  color: '#263247 !important',
-  background: '#fffdf9 !important'
-};
-
-const SHARED_CONTENT_RULES = {
-  'img, svg, video': { 'max-width': '100% !important', height: 'auto !important' },
-  'p, li, blockquote': { 'overflow-wrap': 'break-word !important' },
-  'h1, h2, h3, h4': { 'line-height': '1.35 !important', 'margin-top': '1.6em !important' }
-};
-
-// 连续滚动模式：长文档流式排版，由我们接管尺寸。
-const SCROLL_CONTENT_RULES = {
-  html: {
-    height: 'auto !important',
-    'min-height': '100% !important',
-    overflow: 'visible !important'
-  },
-  body: {
-    ...CONTENT_TYPOGRAPHY,
-    padding: 'clamp(24px, 5vw, 72px) clamp(18px, 7vw, 96px) !important',
-    margin: '0 auto !important',
-    'max-width': '820px !important',
-    overflow: 'visible !important',
-    'user-select': 'text !important',
-    '-webkit-user-select': 'text !important',
-    '-webkit-touch-callout': 'default !important'
-  },
-  ...SHARED_CONTENT_RULES
-};
-
-// 分页模式：页面切分完全交给 epub.js 的列排版，任何尺寸/溢出覆盖都会导致列错位。
-const PAGINATED_CONTENT_RULES = {
-  body: {
-    ...CONTENT_TYPOGRAPHY,
-    'touch-action': 'none !important',
-    'user-select': 'none !important',
-    '-webkit-user-select': 'none !important',
-    '-webkit-touch-callout': 'none !important'
-  },
-  ...SHARED_CONTENT_RULES
-};
-
-function installEPUBStyles(contents) {
-  const paginated = state.epubMode === 'paginated';
-  contents.addStylesheetRules(paginated ? PAGINATED_CONTENT_RULES : SCROLL_CONTENT_RULES);
-
-  try {
-    const frameWindow = contents.window;
-    const frameDocument = contents.document;
-    const frame = frameWindow.frameElement;
-    if (!frame) return;
-    installEPUBNavigation(frameDocument, frame, frameWindow);
-    frame.style.touchAction = paginated ? 'none' : '';
-    frame.style.userSelect = paginated ? 'none' : '';
-    frame.style.webkitUserSelect = paginated ? 'none' : '';
-    if (paginated) return;
-
-    // 仅滚动模式需要把 iframe 拉到内容总高度；分页模式下必须保持 100% 视口。
-    const syncFrameHeight = () => {
-      const root = frameDocument.documentElement;
-      const body = frameDocument.body;
-      const height = Math.max(
-        root?.scrollHeight || 0,
-        root?.offsetHeight || 0,
-        body?.offsetHeight || 0
-      );
-      frame.style.height = `${Math.max(height, 1)}px`;
-    };
-    frameWindow.addEventListener('load', syncFrameHeight, { once: true });
-    window.setTimeout(syncFrameHeight, 0);
-    window.setTimeout(syncFrameHeight, 300);
-    if (window.ResizeObserver) {
-      const resizeObserver = new ResizeObserver(syncFrameHeight);
-      resizeObserver.observe(frameDocument.documentElement);
-      if (frameDocument.body) resizeObserver.observe(frameDocument.body);
-      state.epubResizeObservers.add(resizeObserver);
-    }
-  } catch (error) {
-    console.warn('EPUB 内容尺寸同步失败:', error);
-  }
-}
-
-let lastEPUBNavAt = 0;
-
-// ── 翻页效果选择器 ────────────────────────────────────────────────
-const EFFECT_LABELS = {
-  slide: () => t('reader.pageTurnSlide'),
-  fade: () => t('reader.pageTurnFade'),
-  flip: () => t('reader.pageTurnFlip'),
-  cover: () => t('reader.pageTurnCover'),
-  curl: () => t('reader.pageTurnCurl')
-};
-
-let epubTurnSelectorBound = false;
-
-function renderPageTurnDropdown(wrap) {
-  const dropdown = wrap.querySelector('.page-turn-dropdown');
-  if (!dropdown) return;
-  const current = getPageTurnEffect();
-  dropdown.replaceChildren();
-  getAvailableEffects().forEach((effect) => {
-    const btn = document.createElement('button');
-    btn.className = 'page-turn-option';
-    btn.type = 'button';
-    btn.role = 'option';
-    btn.dataset.effect = effect;
-    btn.setAttribute('aria-selected', effect === current ? 'true' : 'false');
-    btn.innerHTML = `<span class="page-turn-option-icon">${getEffectIcon(effect)}</span><span>${EFFECT_LABELS[effect]()}</span><span class="page-turn-option-check">✓</span>`;
-    btn.addEventListener('click', () => {
-      setPageTurnEffect(effect);
-      dropdown.querySelectorAll('.page-turn-option').forEach((opt) => {
-        opt.setAttribute('aria-selected', opt.dataset.effect === effect ? 'true' : 'false');
-      });
-      wrap.querySelector('.reader-btn').setAttribute('aria-expanded', 'false');
-      dropdown.hidden = true;
-    });
-    dropdown.appendChild(btn);
-  });
-}
-
-function setupPageTurnSelector() {
-  const wrap = $('#epub-turn-selector');
-  if (!wrap) return;
-  const trigger = wrap.querySelector('.reader-btn');
-  const dropdown = wrap.querySelector('.page-turn-dropdown');
-  if (!trigger || !dropdown) return;
-
-  renderPageTurnDropdown(wrap);
-
-  if (epubTurnSelectorBound) {
-    renderPageTurnDropdown(wrap); // 已绑定过，仅刷新语言
-    return;
-  }
-  epubTurnSelectorBound = true;
-
-  trigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    renderPageTurnDropdown(wrap); // 每次打开都刷新当前语言
-    const open = !dropdown.hidden;
-    dropdown.hidden = open;
-    trigger.setAttribute('aria-expanded', String(!open));
-  });
-
-  document.addEventListener('click', (e) => {
-    if (wrap.contains(e.target)) return;
-    dropdown.hidden = true;
-    trigger.setAttribute('aria-expanded', 'false');
-  });
-
-  // 语言切换时即时刷新菜单文案
-  window.addEventListener(LANGUAGE_CHANGE_EVENT, () => renderPageTurnDropdown(wrap));
-}
-
-function getEffectIcon(effect) {
-  switch (effect) {
-    case 'slide': return '↔';
-    case 'fade': return '◐';
-    case 'flip': return '↻';
-    case 'cover': return '⇥';
-    case 'curl': return '◗';
-    default: return '•';
-  }
-}
-
-// 统一翻页节流：键盘、点击分区、滑动共用一个时间窗口，避免一次手势翻多页。
-function requestEPUBNav(direction) {
-  const now = Date.now();
-  if (now - lastEPUBNavAt < 320) return;
-  lastEPUBNavAt = now;
-  void (direction < 0 ? epubPrev() : epubNext());
-}
-
-// 豆瓣式交互：分页模式下，iframe 内支持左右键、点击左右分区、横滑三种翻页方式。
-// frameDocument 内的监听优先（Chrome），同时 frameElement 上挂一份宿主层兜底监听（Safari
-// 对 iframe 内 Pointer/Keyboard 事件交付不稳定），两者共用 requestEPUBNav 节流避免重复翻页。
-function installEPUBNavigation(frameDocument, iframe = null, iframeWindow = null) {
-  const frameWindow = frameDocument.defaultView || iframeWindow;
-  let gesture = null;
-  let suppressClickUntil = 0;
-
-  const isInteractiveTarget = (target) => target?.nodeType === 1
-    && Boolean(target.closest('a, button, input, select, textarea'));
-  const isHorizontalSwipe = (distanceX, distanceY) => (
-    Math.abs(distanceX) >= 56 && Math.abs(distanceX) > Math.abs(distanceY) * 1.25
-  );
-  const closeTOCBeforeNavigation = () => {
-    const sidebar = $('#epub-sidebar');
-    if (!sidebar.classList.contains('show')) return false;
-    toggleTOC(false);
-    return true;
-  };
-
-  // 点击分区：左 1/4 上一页，右 3/4 下一页（主流阅读器的默认习惯）。
-  const isNavClick = (event) => state.epubMode === 'paginated'
-    && !isInteractiveTarget(event.target)
-    && Date.now() >= suppressClickUntil;
-  const navigateByClickX = (clientX) => {
-    if (closeTOCBeforeNavigation()) return;
-    const edge = Math.min(frameWindow.innerWidth * 0.25, 140);
-    if (clientX <= edge) requestEPUBNav(-1);
-    else if (clientX >= frameWindow.innerWidth - edge) requestEPUBNav(1);
-  };
-
-  const navigateBySwipe = (distanceX, distanceY, event, target) => {
-    if (!isHorizontalSwipe(distanceX, distanceY) || isInteractiveTarget(target)) return;
-    if (closeTOCBeforeNavigation()) return;
-    suppressClickUntil = Date.now() + 360;
-    if (event.cancelable) event.preventDefault();
-    // 物理书翻页习惯：从左往右拖 = 上一页，从右往左拖 = 下一页
-    endPageDrag($('#epub-container'), distanceX, () => requestEPUBNav(distanceX < 0 ? -1 : 1), 0.15);
-  };
-  const suppressDraggedClick = (event) => {
-    if (Date.now() >= suppressClickUntil) return;
-    event.preventDefault();
-    event.stopPropagation();
-    suppressClickUntil = 0;
-  };
-
-  frameDocument.addEventListener('contextmenu', (event) => event.preventDefault());
-
-  // iframe 内键盘事件不会冒泡到主文档，需要同时监听 document 和 window。
-  const handleFrameKeydown = (event) => {
-    if (state.epubMode !== 'paginated' || event.target?.closest?.('input, textarea, select')) return;
-    const navKeys = {
-      ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
-      ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1,
-      w: -1, a: -1, s: 1, d: 1
-    };
-    const codeKeys = { KeyW: -1, KeyA: -1, KeyS: 1, KeyD: 1 };
-    const direction = navKeys[event.key]
-      ?? navKeys[event.key?.toLowerCase?.()]
-      ?? codeKeys[event.code];
-    if (!direction) return;
-    event.preventDefault();
-    requestEPUBNav(direction);
-  };
-  frameDocument.addEventListener('keydown', handleFrameKeydown);
-  frameWindow.addEventListener('keydown', handleFrameKeydown);
-
-  if ('PointerEvent' in frameWindow) {
-    let lastPointerEventAt = 0;
-    const reset = () => { gesture = null; };
-    frameDocument.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse') lastPointerEventAt = Date.now();
-      if (event.pointerType !== 'mouse' || state.epubMode !== 'paginated' || event.isPrimary === false
-        || (event.pointerType === 'mouse' && event.button !== 0)
-        || isInteractiveTarget(event.target)) return;
-      gesture = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        target: event.target,
-        dragged: false
-      };
-    }, { passive: true });
-    frameDocument.addEventListener('pointermove', (event) => {
-      if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
-      const distanceX = event.clientX - gesture.x;
-      const distanceY = event.clientY - gesture.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) {
-        gesture.dragged = true;
-        if (!isPageTurning($('#epub-container'))) beginPageDrag(
-          $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error(`Timeout: ${stageKey}`)),
+          timeout,
         );
-        updatePageDrag($('#epub-container'), distanceX);
-        if (event.cancelable) event.preventDefault();
-      } else if (event.pointerType === 'mouse' && event.cancelable) {
-        // 鼠标拖动不应触发文本选择，触屏则保留长按后的原生纵向手势。
-        event.preventDefault();
-      }
-    }, { passive: false });
-    frameDocument.addEventListener('pointerup', (event) => {
-      if (event.pointerType === 'mouse') lastPointerEventAt = Date.now();
-      if (event.pointerType !== 'mouse' || !gesture || event.pointerId !== gesture.id) return;
-      const current = gesture;
-      reset();
-      const distanceX = event.clientX - current.x;
-      const distanceY = event.clientY - current.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) {
-        navigateBySwipe(distanceX, distanceY, event, current.target);
-        return;
-      }
-      // 未拖动的点按（含触屏轻点）按分区翻页。
-      if (!current.dragged && isNavClick(event)) navigateByClickX(event.clientX);
-    }, { passive: false });
-    frameDocument.addEventListener('pointercancel', () => {
-      lastPointerEventAt = Date.now();
-      cancelPageDrag($('#epub-container'));
-      reset();
-    }, { passive: true });
-
-    // Safari 某些版本的 iframe 鼠标 Pointer Events 不稳定，保留传统鼠标事件兜底。
-    let mouseStart = null;
-    frameDocument.addEventListener('mousedown', (event) => {
-      if (Date.now() - lastPointerEventAt < 500 || event.button !== 0
-        || state.epubMode !== 'paginated' || isInteractiveTarget(event.target)) return;
-      mouseStart = { x: event.clientX, y: event.clientY, target: event.target };
-    });
-    frameDocument.addEventListener('mouseup', (event) => {
-      if (!mouseStart || Date.now() - lastPointerEventAt < 500) return;
-      const start = mouseStart;
-      mouseStart = null;
-      const distanceX = event.clientX - start.x;
-      const distanceY = event.clientY - start.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) {
-        navigateBySwipe(distanceX, distanceY, event, start.target);
-      } else if (isNavClick(event)) {
-        navigateByClickX(event.clientX);
-      }
-    });
-
-    // Safari 可能同时支持 Pointer Events 和 Touch Events，触摸翻页使用 touch 兜底。
-    let touchStart = null;
-    frameDocument.addEventListener('touchstart', (event) => {
-      if (state.epubMode !== 'paginated' || event.touches.length !== 1
-        || isInteractiveTarget(event.target)) return;
-      const touch = event.touches[0];
-      touchStart = { x: touch.clientX, y: touch.clientY, target: event.target };
-    }, { passive: true });
-    frameDocument.addEventListener('touchend', (event) => {
-      if (!touchStart || event.changedTouches.length !== 1) {
-        touchStart = null;
-        return;
-      }
-      const touch = event.changedTouches[0];
-      const start = touchStart;
-      touchStart = null;
-      const distanceX = touch.clientX - start.x;
-      const distanceY = touch.clientY - start.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) {
-        navigateBySwipe(distanceX, distanceY, event, start.target);
-      } else if (isNavClick(event)) {
-        navigateByClickX(touch.clientX);
-      }
-    }, { passive: false });
-    frameDocument.addEventListener('touchmove', (event) => {
-      if (!touchStart || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const distanceX = touch.clientX - touchStart.x;
-      const distanceY = touch.clientY - touchStart.y;
-      if (!isHorizontalSwipe(distanceX, distanceY)) return;
-      if (!isPageTurning($('#epub-container'))) beginPageDrag(
-        $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
-      );
-      updatePageDrag($('#epub-container'), distanceX);
-      if (event.cancelable) event.preventDefault();
-    }, { passive: false });
-    frameDocument.addEventListener('touchcancel', () => {
-      cancelPageDrag($('#epub-container'));
-      touchStart = null;
-    }, { passive: true });
-  } else {
-    let touchStart = null;
-    const resetTouch = () => { touchStart = null; };
-    frameDocument.addEventListener('touchstart', (event) => {
-      if (state.epubMode !== 'paginated' || event.touches.length !== 1
-        || isInteractiveTarget(event.target)) return;
-      const touch = event.touches[0];
-      touchStart = { x: touch.clientX, y: touch.clientY, target: event.target };
-    }, { passive: true });
-    frameDocument.addEventListener('touchend', (event) => {
-      if (!touchStart || event.changedTouches.length !== 1) {
-        resetTouch();
-        return;
-      }
-      const touch = event.changedTouches[0];
-      const current = touchStart;
-      resetTouch();
-      const distanceX = touch.clientX - current.x;
-      const distanceY = touch.clientY - current.y;
-      if (isHorizontalSwipe(distanceX, distanceY)) {
-        navigateBySwipe(distanceX, distanceY, event, current.target);
-        return;
-      }
-      if (isNavClick(event)) navigateByClickX(touch.clientX);
-    }, { passive: false });
-    frameDocument.addEventListener('touchmove', (event) => {
-      if (!touchStart || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      const distanceX = touch.clientX - touchStart.x;
-      const distanceY = touch.clientY - touchStart.y;
-      if (!isHorizontalSwipe(distanceX, distanceY)) return;
-      if (!isPageTurning($('#epub-container'))) beginPageDrag(
-        $('#epub-container'), distanceX < 0 ? 1 : -1, frameWindow.innerWidth
-      );
-      updatePageDrag($('#epub-container'), distanceX);
-      if (event.cancelable) event.preventDefault();
-    }, { passive: false });
-    frameDocument.addEventListener('touchcancel', () => {
-      cancelPageDrag($('#epub-container'));
-      resetTouch();
-    }, { passive: true });
+      }),
+    ]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+    if (reader?.clearStage) reader.clearStage(stageKey);
   }
-
-  frameDocument.addEventListener('click', (event) => {
-    if (!isInteractiveTarget(event.target)) toggleTOC(false);
-  });
-  frameDocument.addEventListener('click', suppressDraggedClick, true);
-
-  // 触控板横向滑动：wheel 事件的 deltaX 累积超过阈值时翻页（两指/三指滑动）。
-  let wheelDeltaX = 0;
-  let wheelResetTimer = null;
-  frameDocument.addEventListener('wheel', (event) => {
-    if (state.epubMode !== 'paginated') return;
-    if (closeTOCBeforeNavigation()) {
-      wheelDeltaX = 0;
-      return;
-    }
-    const { deltaX, deltaY } = event;
-    // 只处理明显的横向滚动：横向分量 > 垂直分量的 1.2 倍（触控板横滑）
-    if (Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
-
-    clearTimeout(wheelResetTimer);
-    wheelDeltaX += deltaX;
-
-    // 累积横向增量超过 40 触发翻页（物理书翻页习惯：向左滑 = 下一页，向右滑 = 上一页）
-    const threshold = 40;
-    if (Math.abs(wheelDeltaX) >= threshold) {
-      if (event.cancelable) event.preventDefault();
-      requestEPUBNav(wheelDeltaX > 0 ? 1 : -1);
-      wheelDeltaX = 0;
-    } else {
-      // 300ms 内没有新的 wheel 事件，重置累积值（更宽容的滑动停顿窗口）
-      wheelResetTimer = setTimeout(() => { wheelDeltaX = 0; }, 300);
-    }
-  }, { passive: false });
-
-  // ── 宿主层兜底（Safari）────────────────────────────────────
-  // 事件挂在 iframe 元素与主文档上，即使 Safari 不把 iframe 内事件交付给
-  // 内部 document 的监听器也能触达。坐标以 iframe 局部为准做点击分区。
-  // 仅在 Safari 下启用，避免与 Chrome 的 iframe 内监听重复翻页。
-  const isSafari = /^((?!chrome|crios|android|edg).)*safari/i.test(navigator.userAgent)
-    || /safari/i.test(navigator.userAgent) && !/chrome/i.test(navigator.userAgent);
-  if (!iframe || !isSafari) return;
-  const localX = (event) => {
-    const rect = iframe.getBoundingClientRect();
-    return event.clientX - rect.left;
-  };
-  const localY = (event) => {
-    const rect = iframe.getBoundingClientRect();
-    return event.clientY - rect.top;
-  };
-
-  let hostPointer = null;
-  const hostPointerDown = (event) => {
-    if (event.button !== 0 || state.epubMode !== 'paginated') return;
-    hostPointer = {
-      x: localX(event), y: localY(event),
-      id: event.pointerId, target: event.target, dragged: false
-    };
-    // Safari 里 iframe 被点击后会独占键盘焦点，导致主文档的全局按键（app.js）
-    // 收不到方向键。把焦点拉回宿主容器，保证后续方向键翻页可用。
-    keepHostFocus();
-  };
-  const keepHostFocus = () => {
-    const container = $('#epub-container');
-    if (!container) return;
-    if (!container.hasAttribute('tabindex')) container.setAttribute('tabindex', '-1');
-    try { iframe.blur(); } catch (_) { /* 忽略 */ }
-    if (document.activeElement !== container) container.focus({ preventScroll: true });
-  };
-  const hostPointerMove = (event) => {
-    if (!hostPointer || (event.pointerId !== undefined && event.pointerId !== hostPointer.id)) return;
-    const dx = localX(event) - hostPointer.x;
-    const dy = localY(event) - hostPointer.y;
-    if (isHorizontalSwipe(dx, dy)) {
-      hostPointer.dragged = true;
-      if (!isPageTurning($('#epub-container'))) beginPageDrag(
-        $('#epub-container'), dx < 0 ? 1 : -1, iframeWindow?.innerWidth || iframe.clientWidth
-      );
-      updatePageDrag($('#epub-container'), dx);
-      if (event.cancelable) event.preventDefault();
-    }
-  };
-  const hostPointerUp = (event) => {
-    if (!hostPointer || (event.pointerId !== undefined && event.pointerId !== hostPointer.id)) return;
-    const cur = hostPointer;
-    hostPointer = null;
-    const dx = localX(event) - cur.x;
-    const dy = localY(event) - cur.y;
-    if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
-      return;
-    }
-    if (!cur.dragged) navigateByClickX(localX(event));
-    keepHostFocus();
-  };
-  const hostPointerCancel = () => {
-    hostPointer = null;
-    cancelPageDrag($('#epub-container'));
-  };
-  // 用“是否真的收到过 pointerdown”来判断，而不是 PointerEvent 是否存在：
-  // Safari 即便支持 PointerEvent，也可能不把 iframe 内事件交付出来。
-  let sawHostPointerDown = false;
-  let lastHostPointerDownAt = 0;
-  if ('PointerEvent' in window) {
-    iframe.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse') lastHostPointerDownAt = Date.now();
-      sawHostPointerDown = true;
-      hostPointerDown(event);
-    }, { passive: true });
-    iframe.addEventListener('pointermove', hostPointerMove, { passive: false });
-    iframe.addEventListener('pointerup', hostPointerUp, { passive: false });
-    iframe.addEventListener('pointercancel', hostPointerCancel, { passive: true });
-  }
-
-  let hostMouse = null;
-  iframe.addEventListener('mousedown', (event) => {
-    if (event.button !== 0 || state.epubMode !== 'paginated') return;
-    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
-    hostMouse = { x: localX(event), y: localY(event), target: event.target };
-  });
-  iframe.addEventListener('mouseup', (event) => {
-    if (!hostMouse || (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500)) return;
-    const cur = hostMouse;
-    hostMouse = null;
-    const dx = localX(event) - cur.x;
-    const dy = localY(event) - cur.y;
-    if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
-      return;
-    }
-    navigateByClickX(localX(event));
-    keepHostFocus();
-  });
-
-  let hostTouch = null;
-  iframe.addEventListener('touchstart', (event) => {
-    if (state.epubMode !== 'paginated' || event.touches.length !== 1) return;
-    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
-    const t = event.touches[0];
-    hostTouch = { x: localX(t), y: localY(t), target: event.target };
-  }, { passive: true });
-  iframe.addEventListener('touchmove', (event) => {
-    if (!hostTouch || event.touches.length !== 1) return;
-    const t = event.touches[0];
-    const dx = localX(t) - hostTouch.x;
-    const dy = localY(t) - hostTouch.y;
-    if (!isHorizontalSwipe(dx, dy)) return;
-    if (!isPageTurning($('#epub-container'))) beginPageDrag(
-      $('#epub-container'), dx < 0 ? 1 : -1, iframeWindow?.innerWidth || iframe.clientWidth
-    );
-    updatePageDrag($('#epub-container'), dx);
-    if (event.cancelable) event.preventDefault();
-  }, { passive: false });
-  iframe.addEventListener('touchend', (event) => {
-    if (!hostTouch || event.changedTouches.length !== 1) {
-      hostTouch = null;
-      return;
-    }
-    const t = event.changedTouches[0];
-    const cur = hostTouch;
-    hostTouch = null;
-    if (sawHostPointerDown && Date.now() - lastHostPointerDownAt < 500) return;
-    const dx = localX(t) - cur.x;
-    const dy = localY(t) - cur.y;
-    if (isHorizontalSwipe(dx, dy)) {
-      endPageDrag($('#epub-container'), dx, () => requestEPUBNav(dx < 0 ? -1 : 1), 0.15);
-      return;
-    }
-    navigateByClickX(localX(t));
-    keepHostFocus();
-  }, { passive: false });
-  iframe.addEventListener('touchcancel', () => {
-    hostTouch = null;
-    cancelPageDrag($('#epub-container'));
-  }, { passive: true });
 }
 
-function clearEPUBProgressTracking() {
-  const container = $('#epub-container');
-  if (state.epubScrollHandler) {
-    container.removeEventListener('scroll', state.epubScrollHandler);
-    state.epubScrollHandler = null;
-  }
-  if (state.epubScrollFrame) cancelAnimationFrame(state.epubScrollFrame);
-  state.epubScrollFrame = 0;
-}
-
-function setEPUBProgress(progress) {
-  const safeProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-  const percent = Math.round(safeProgress * 100);
-  $('#epub-progress-bar').style.width = `${safeProgress * 100}%`;
-  $('#epub-progress-percent').textContent = `${percent}%`;
-  $('#epub-progress-wrap').setAttribute('aria-valuenow', String(percent));
-  const valueDisplay = $('#epub-progress-value');
-  if (valueDisplay) valueDisplay.textContent = `${percent}%`;
-}
-
-function setupEPUBProgressBar() {
-  const wrap = $('#epub-progress-wrap');
-  const bar = $('#epub-progress-bar');
-  if (!wrap || !bar) return;
-
-  if (wrap.dataset.bound === 'true') return;
-  wrap.dataset.bound = 'true';
-
-  let isDragging = false;
-  let dragPointerId = null;
-  let dragFraction = 0;
-
-  function getProgressFromPoint(clientX) {
-    const rect = wrap.getBoundingClientRect();
-    const x = clientX - rect.left;
-    return Math.max(0, Math.min(1, x / rect.width));
-  }
-
-  async function handleProgressChange(fraction) {
-    if (!state.rendition || !state.book?.locations) return;
-    const location = state.book.locations.cfiFromPercentage(fraction);
-    state.epubProgressOverride = fraction;
-    try {
-      await state.rendition.display(location);
-    } catch (error) {
-      console.warn('EPUB 进度定位失败:', error);
-    } finally {
-      const current = state.rendition?.currentLocation?.();
-      const loc = current?.then ? await current : current;
-      if (state.epubProgressOverride !== fraction) return;
-      state.epubProgressOverride = null;
-      const start = loc?.start;
-      if (start) {
-        const cfi = cfiValue(start.cfi);
-        if (cfi) state.epubLocation = cfi;
-        const safeProgress = Math.max(0, Math.min(1, fraction));
-        setEPUBProgress(safeProgress);
-        updateBookProgress(
-          state.activeFile,
-          safeProgress,
-          cfi ? { kind: 'epub-cfi', value: cfi } : undefined
-        );
-      }
-    }
-  }
-
-  function previewProgress(clientX) {
-    dragFraction = getProgressFromPoint(clientX);
-    setEPUBProgress(dragFraction);
-  }
-
-  function onStart(event) {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    isDragging = true;
-    dragPointerId = event.pointerId;
-    wrap.classList.add('dragging');
-    wrap.setPointerCapture?.(event.pointerId);
-    previewProgress(event.clientX);
-    event.preventDefault();
-  }
-
-  function onMove(event) {
-    if (!isDragging || event.pointerId !== dragPointerId) return;
-    previewProgress(event.clientX);
-    event.preventDefault();
-  }
-
-  function onEnd(event) {
-    if (!isDragging) return;
-    if (event && event.pointerId !== dragPointerId) return;
-    if (event) previewProgress(event.clientX);
-    isDragging = false;
-    const pointerId = dragPointerId;
-    dragPointerId = null;
-    wrap.releasePointerCapture?.(pointerId);
-    wrap.classList.remove('dragging');
-    handleProgressChange(dragFraction);
-  }
-
-  wrap.addEventListener('pointerdown', onStart, { passive: false });
-  wrap.addEventListener('pointermove', onMove, { passive: false });
-  wrap.addEventListener('pointerup', onEnd, { passive: false });
-  wrap.addEventListener('pointercancel', onEnd, { passive: false });
-  wrap.addEventListener('keydown', (event) => {
-    const current = Number($('#epub-progress-wrap').getAttribute('aria-valuenow') || 0) / 100;
-    const step = event.shiftKey ? 0.01 : 0.001;
-    let next = current;
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next -= step;
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next += step;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = 1;
-    else return;
-    event.preventDefault();
-    setEPUBProgress(next);
-    handleProgressChange(next);
-  });
-}
-
-function updateSavedEPUBProgress(location, progress) {
-  if (!state.activeFile || typeof progress !== 'number') return;
-  const end = location?.end;
-  let endProgress = end?.percentage;
-  if (typeof endProgress !== 'number' && state.epubLocationsReady && end?.cfi) {
-    endProgress = state.book.locations.percentageFromCfi(cfiValue(end.cfi));
-  }
-  const reachedEnd = location?.atEnd === true || end?.atEnd === true || endProgress >= 1;
-  const safeProgress = reachedEnd ? 1 : Math.max(0, Math.min(1, progress));
-  const cfi = cfiValue(location?.start?.cfi);
-  setEPUBProgress(safeProgress);
-  updateBookProgress(
-    state.activeFile,
-    safeProgress,
-    cfi ? { kind: 'epub-cfi', value: cfi } : undefined
-  );
-}
+// ═══════════════════════════════════════════════════════════════════
+// 编排：打开 EPUB → book → rendition → TOC + locations
+// ═══════════════════════════════════════════════════════════════════
 
 export async function renderEPUB(url, filename, requestId, restoreLocation = null, fileObject = null) {
   const container = $('#epub-container');
@@ -771,7 +108,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     ? cfiValue(restoreLocation.value)
     : cfiValue(restoreLocation);
   state.epubUrl = url;
-  const mode = 'paginated'; // 固定分页模式
+  const mode = 'paginated';
   $('#epub-reader').dataset.mode = mode;
   $('#epub-reader').classList.remove('mode-scroll');
   $('#epub-reader').classList.add('mode-paginated');
@@ -785,7 +122,6 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   const renderToken = state.epubRenderToken;
   setEPUBPage(0, 0);
 
-  // 立即显示保存的进度（如果有）
   const savedProgress = getBookReadingProgress(filename);
   setEPUBProgress(savedProgress);
 
@@ -797,8 +133,6 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     await waitForLibrary('ePub', () => typeof window.ePub === 'function');
     if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
 
-    // 本地 File 对象：先读成 ArrayBuffer 再交给 epubjs，
-    // 避免 epubjs 用 fetch 处理 blob URL 时的超时问题。
     let epubSource = url;
     if (fileObject instanceof File || fileObject instanceof Blob) {
       setEPUBStatus('loading', t('reader.loadingEpub'), t('reader.readingFileContent'));
@@ -814,7 +148,7 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
       flow: 'paginated',
       manager: 'default',
       spread: 'auto',
-      allowScriptedContent: false
+      allowScriptedContent: false,
     });
     state.rendition = rendition;
 
@@ -839,7 +173,6 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     const title = book.package?.metadata?.title || book.metadata?.title || filename;
     $('#epub-title').textContent = title;
 
-    // 设置下载链接：本地文件用 blob URL，远程文件用原始 URL
     const dlLink = $('#epub-download');
     if (dlLink) {
       dlLink.href = url;
@@ -853,6 +186,13 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
     setupEPUBProgressBar();
     setupPageTurnSelector();
 
+    // Safari/WebKit 预跑一次截图可行性 probe（EPUB 基本是 blob iframe，1ms 内短路到不可行），
+    // 之后 turnPage/beginPageDrag 就直接走永久 bypass，避免用户第一次按键/滑动才被 300ms probe 挡住。
+    // requestIdleCallback 不阻塞首帧响应。
+    const warmupTarget = container;
+    if ('requestIdleCallback' in window) window.requestIdleCallback(() => warmupPageTurnCapture(warmupTarget), { timeout: 600 });
+    else window.setTimeout(() => warmupPageTurnCapture(warmupTarget), 200);
+
     void loadEPUBTOC(book, requestId, renderToken).catch((error) => {
       console.warn('EPUB 目录加载失败:', error);
     });
@@ -864,195 +204,12 @@ export async function renderEPUB(url, filename, requestId, restoreLocation = nul
   }
 }
 
-function getEPUBSpineIndex(book, href, fallback) {
-  const hrefWithoutFragment = href?.split('#', 1)[0] || href;
-  return book.spine.get(href)?.index
-    ?? book.spine.get(hrefWithoutFragment)?.index
-    ?? fallback;
-}
+// ═══════════════════════════════════════════════════════════════════
+// 导出：翻页 / 章节跳转 / 重置 / 目录抽屉
+// ═══════════════════════════════════════════════════════════════════
 
-async function loadEPUBTOC(book, requestId, renderToken) {
-  const list = $('#epub-toc-list');
-  list.replaceChildren();
-  const navigation = await waitForStage(book.loaded.navigation, 'reader.stageLoadToc', 10000);
-  if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
-  const items = navigation?.toc || [];
-  const chapters = [];
-  const isCurrentTOC = () => (
-    requestId === state.requestId
-    && renderToken === state.epubRenderToken
-    && state.book === book
-    && state.rendition
-  );
-  if (!items.length) {
-    state.epubChapters = [];
-    const empty = document.createElement('li');
-    empty.className = 'pdf-outline-empty';
-    empty.textContent = t('reader.epubNoOutline');
-    list.appendChild(empty);
-    updateEPUBChapterControls();
-    return;
-  }
-  const appendItems = (entries, parent, level = 0) => entries.forEach((entry) => {
-    const chapter = {
-      href: entry.href,
-      label: entry.label?.trim() || t('reader.untitledChapter'),
-      level,
-      spineIndex: getEPUBSpineIndex(book, entry.href, chapters.length)
-    };
-    chapters.push(chapter);
-    const item = document.createElement('li');
-    const button = document.createElement('button');
-    item.className = 'pdf-outline-item';
-    button.type = 'button';
-    button.textContent = chapter.label;
-    button.style.paddingLeft = `${12 + level * 14}px`;
-    button.addEventListener('click', () => {
-      if (!isCurrentTOC()) return;
-      const rendition = state.rendition;
-      void rendition.display(chapter.href).catch((error) => {
-        if (isCurrentTOC()) console.warn('EPUB 目录跳转失败:', error);
-      });
-      toggleTOC(false);
-    });
-    item.appendChild(button);
-    parent.appendChild(item);
-    if (entry.subitems?.length) appendItems(entry.subitems, parent, level + 1);
-  });
-  appendItems(items, list);
-  state.epubChapters = chapters;
-  updateEPUBChapterControls();
-  const current = state.rendition?.currentLocation?.();
-  if (current?.then) void current.then(updateEPUBLocation);
-  else if (current) updateEPUBLocation(current);
-}
-
-// ── EPUB locations 缓存 ───────────────────────────────────────
-// 用文件名（URL 末段）作为缓存 key，存 locations 数组字符串
-// 避免每次打开都重新 generate，大幅提升恢复速度
-
-const LOCATIONS_CACHE_PREFIX = 'epub-locations:';
-const LOCATIONS_CACHE_MAX    = 30; // 最多缓存 30 本书，超出自动淘汰最旧的
-
-function getLocationsCacheKey(filename) {
-  // 取文件名最后一段，去除路径和 query
-  return LOCATIONS_CACHE_PREFIX + filename.split('/').pop().split('?')[0];
-}
-
-function loadLocationsCache(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const { locations, spine } = JSON.parse(raw);
-    if (!Array.isArray(locations) || !locations.length) return null;
-    return { locations, spine };
-  } catch {
-    return null;
-  }
-}
-
-function saveLocationsCache(key, locations, spine) {
-  try {
-    // 淘汰超出上限的旧缓存
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith(LOCATIONS_CACHE_PREFIX)) keys.push(k);
-    }
-    if (keys.length >= LOCATIONS_CACHE_MAX) {
-      keys.sort(); // 字典序近似时间序，淘汰前几条
-      for (let i = 0; i <= keys.length - LOCATIONS_CACHE_MAX; i++) {
-        localStorage.removeItem(keys[i]);
-      }
-    }
-    // spine 用于校验文件是否变化（存章节数量）
-    localStorage.setItem(key, JSON.stringify({ locations, spine }));
-  } catch (err) {
-    // localStorage 满了：静默忽略
-    console.warn('[EPUB locations cache] 保存失败:', err);
-  }
-}
-
-async function generateEPUBLocations(book, requestId, renderToken) {
-  const cacheKey = getLocationsCacheKey(state.epubUrl || state.activeFile || '');
-  // 当前书的 spine 章节数，用于校验缓存是否匹配
-  const spineCount = book.spine?.spineItems?.length ?? 0;
-
-  const run = async () => {
-    try {
-      // ── 尝试读缓存 ──
-      const cached = loadLocationsCache(cacheKey);
-      if (cached && cached.spine === spineCount && cached.locations.length > 1) {
-        // 命中缓存：直接加载，跳过耗时 generate
-        book.locations.load(cached.locations);
-      } else {
-        // 未命中：生成并保存
-        const locations = await waitForStage(
-          book.locations.generate(1200), 'reader.stageGenerateLocations', 30000
-        );
-        if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
-        if (locations?.length > 1) {
-          saveLocationsCache(cacheKey, locations, spineCount);
-        }
-      }
-
-      if (requestId !== state.requestId || renderToken !== state.epubRenderToken) return;
-      state.epubLocationsReady = book.locations.length() > 1;
-      state.epubTotalPages = Math.max(0, book.locations.length() - 1);
-      const current = state.rendition?.currentLocation?.();
-      if (current?.then) updateEPUBLocation(await current);
-      else if (current) updateEPUBLocation(current);
-      else setEPUBPage(0, state.epubTotalPages);
-    } catch (error) {
-      if (requestId === state.requestId && renderToken === state.epubRenderToken) {
-        console.warn('EPUB 页码生成失败:', error);
-        state.epubStatus = 'ready';
-        setEPUBPage(0, 0);
-      }
-    }
-  };
-  if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 1800 });
-  else window.setTimeout(run, 500);
-}
-
-function updateEPUBLocation(location) {
-  const start = location?.start;
-  if (!start) return;
-  const cfi = cfiValue(start.cfi);
-  if (cfi) state.epubLocation = cfi;
-  const startIndex = Number(start.index);
-  if (Number.isInteger(startIndex)) {
-    state.epubCurrentChapter = state.epubChapters.findIndex((chapter) => chapter.spineIndex === startIndex);
-  }
-
-  let progress = start.percentage;
-  if (typeof progress !== 'number' && state.epubLocationsReady && cfi) {
-    progress = state.book.locations.percentageFromCfi(cfi);
-  }
-  const reachedEnd = location.atEnd === true || location.end?.atEnd === true;
-  if (typeof progress === 'number') {
-    progress = reachedEnd ? 1 : Math.max(0, Math.min(1, progress));
-    if (state.epubProgressOverride === null) {
-      updateSavedEPUBProgress(location, progress);
-    } else {
-      setEPUBProgress(state.epubProgressOverride);
-    }
-  }
-
-  if (state.epubLocationsReady && cfi) {
-    const locationIndex = state.book.locations.locationFromCfi(cfi);
-    state.epubCurrentPage = Math.max(1, Math.min(state.epubTotalPages, locationIndex + 1));
-  }
-  setEPUBPage(state.epubCurrentPage, state.epubTotalPages);
-  updateEPUBChapterControls();
-}
-
-function updateEPUBChapterControls() {
-  // 章节按钮已移除，保留函数避免其他地方的调用报错
-}
-
-export async function jumpToEPUBPage(value) {
-  // 保留函数避免 app.js 调用报错，但功能已废弃
+export async function jumpToEPUBPage(_value) {
+  // 遗留：仅用于兼容 app.js 的 import；功能由进度条拖动代替
   console.warn('jumpToEPUBPage 已废弃，请使用进度条交互');
 }
 
@@ -1060,6 +217,13 @@ export async function epubNext() {
   if (!state.rendition) return;
   if (state.epubMode === 'paginated') {
     const container = $('#epub-container');
+    // Safari 永久 bypass 或 短暂 bypass：跳过 turnPage 的 Promise+sheet 构建
+    // （否则即便内部 fallback 路径 0 等待，仍会付出：创建 div+加类+removeSheet+WeakMap add/delete
+    //   + async/await 微任务调度 的开销 → 主观感受是「按键有延迟」）
+    if (isPageTurnBypassed(container)) {
+      try { await state.rendition.next(); } catch (err) { console.warn('EPUB 翻下一页失败:', err); }
+      return;
+    }
     await new Promise((resolve, reject) => {
       if (!turnPage(container, 1, () => state.rendition.next().then(resolve, reject))) resolve();
     });
@@ -1073,6 +237,10 @@ export async function epubPrev() {
   if (!state.rendition) return;
   if (state.epubMode === 'paginated') {
     const container = $('#epub-container');
+    if (isPageTurnBypassed(container)) {
+      try { await state.rendition.prev(); } catch (err) { console.warn('EPUB 翻上一页失败:', err); }
+      return;
+    }
     await new Promise((resolve, reject) => {
       if (!turnPage(container, -1, () => state.rendition.prev().then(resolve, reject))) resolve();
     });
@@ -1120,6 +288,34 @@ export function toggleTOC(force) {
   const sidebar = $('#epub-sidebar');
   const show = typeof force === 'boolean' ? force : !sidebar.classList.contains('show');
   sidebar.classList.toggle('show', show);
-  sidebar.setAttribute('aria-hidden', String(!show));
-  $('#epub-toc').setAttribute('aria-expanded', String(show));
+  const btn = $('#epub-toc');
+  btn?.setAttribute('aria-expanded', String(show));
+  btn?.setAttribute('aria-label', show ? '关闭目录' : '打开目录');
+  if (show) {
+    const activeIndex = typeof state.epubCurrentChapter === 'number'
+      && state.epubCurrentChapter >= 0 ? state.epubCurrentChapter : -1;
+    if (activeIndex >= 0) {
+      const item = sidebar.querySelectorAll('.pdf-outline-item')[activeIndex];
+      item?.scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+
+// 防止未使用变量警告（页面拖拽 API 保留给 epub-navigation 内调用，这里不直接使用）
+void beginPageDrag;
+void cancelPageDrag;
+void endPageDrag;
+void isPageTurning;
+void updatePageDrag;
+void updateSavedEPUBProgress;
+// 兼容旧代码里对 window.waitForLibrary 的调用（app.js/其他入口可能没提供）
+if (typeof window.waitForLibrary !== 'function') {
+  window.waitForLibrary = async function waitForLibrary(name, ready, maxWait = 8000) {
+    const started = Date.now();
+    while (Date.now() - started < maxWait) {
+      if (ready()) return;
+      await new Promise((r) => window.setTimeout(r, 50));
+    }
+    throw new Error(`Library ${name} 加载超时`);
+  };
 }
