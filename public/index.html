@@ -4,6 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#172033">
+  <script>
+    (() => {
+      document.documentElement.classList.remove('app-ready');
+      try {
+        const supported = ['zh-CN', 'ja-JP', 'en-US'];
+        const saved = localStorage.getItem('app-language');
+        const browserLang = navigator.language || navigator.userLanguage || 'zh-CN';
+        const preferred = supported.find(code => code === saved) ||
+          supported.find(code => code === browserLang || code.startsWith(browserLang.split('-')[0])) ||
+          'zh-CN';
+        document.documentElement.lang = preferred;
+      } catch (error) {
+        document.documentElement.lang = 'zh-CN';
+      }
+    })();
+  </script>
   <title data-i18n="site.title">在线电子书阅读器</title>
   <link rel="stylesheet" href="./styles.css">
   <script type="importmap">

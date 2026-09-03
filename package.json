@@ -1,6 +1,7 @@
 {
   "name": "pdf-reader",
   "version": "1.0.0",
+  "packageManager": "npm@auto",
   "description": "PDF/EPUB reader with static file serving",
   "main": "server.js",
   "type": "commonjs",

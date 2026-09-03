@@ -76,7 +76,7 @@ async function loadTranslations(lang) {
 export function t(key, fallback = key, params = {}) {
   const keys = key.split('.');
   let value = translations[currentLanguage];
-  
+
   for (const k of keys) {
     if (value && typeof value === 'object') {
       value = value[k];
@@ -84,14 +84,14 @@ export function t(key, fallback = key, params = {}) {
       return fallback;
     }
   }
-  
+
   let result = value || fallback;
-  
+
   // 替换占位符 {param}
   Object.keys(params).forEach(param => {
     result = result.replace(`{${param}}`, params[param]);
   });
-  
+
   return result;
 }
 
@@ -101,23 +101,24 @@ export async function setLanguage(lang) {
     console.warn(`Unsupported language: ${lang}`);
     return false;
   }
-  
+
   await loadTranslations(lang);
   currentLanguage = lang;
-  
+
   // 保存到 localStorage
   try {
     localStorage.setItem('app-language', lang);
   } catch (e) {
     console.warn('Failed to save language preference:', e);
   }
-  
+
   // 更新 HTML lang 属性
   document.documentElement.lang = lang;
-  
+  document.documentElement.classList.add('app-ready');
+
   // 触发语言变更事件（自定义事件名，避免与浏览器原生 languagechange 事件冲突）
   window.dispatchEvent(new CustomEvent(LANGUAGE_CHANGE_EVENT, { detail: { lang } }));
-  
+
   return true;
 }
 
@@ -135,17 +136,17 @@ export async function initI18n() {
   } catch (e) {
     console.warn('Failed to read language preference:', e);
   }
-  
+
   // 检测浏览器语言
   const browserLang = navigator.language || navigator.userLanguage;
-  const matchedLang = supportedLanguages.find(l => 
+  const matchedLang = supportedLanguages.find(l =>
     l.code === browserLang || l.code.startsWith(browserLang.split('-')[0])
   );
-  
+
   // 优先使用保存的语言，其次使用浏览器语言，最后使用默认语言
-  const initialLang = savedLang !== 'zh-CN' ? savedLang : 
+  const initialLang = savedLang !== 'zh-CN' ? savedLang :
                     (matchedLang ? matchedLang.code : 'zh-CN');
-  
+
   await setLanguage(initialLang);
 }
 
@@ -155,37 +156,37 @@ export function updateDOMTranslations() {
   document.querySelectorAll('[data-i18n]').forEach(element => {
     const key = element.getAttribute('data-i18n');
     const translation = t(key);
-    
+
     if (translation) {
       element.textContent = translation;
     }
   });
-  
+
   // 更新所有带有 data-i18n-placeholder 属性的输入框
   document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
     const key = element.getAttribute('data-i18n-placeholder');
     const translation = t(key);
-    
+
     if (translation) {
       element.placeholder = translation;
     }
   });
-  
+
   // 更新所有带有 data-i18n-title 属性的元素
   document.querySelectorAll('[data-i18n-title]').forEach(element => {
     const key = element.getAttribute('data-i18n-title');
     const translation = t(key);
-    
+
     if (translation) {
       element.title = translation;
     }
   });
-  
+
   // 更新所有带有 data-i18n-aria-label 属性的元素
   document.querySelectorAll('[data-i18n-aria-label]').forEach(element => {
     const key = element.getAttribute('data-i18n-aria-label');
     const translation = t(key);
-    
+
     if (translation) {
       element.setAttribute('aria-label', translation);
     }

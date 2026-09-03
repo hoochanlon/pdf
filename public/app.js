@@ -166,7 +166,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (event.target.closest?.('button, input, textarea, select')) return;
-  
+
   // PDF 缩放快捷键：Ctrl/Cmd + 和 Ctrl/Cmd -
   if (state.renderMode === 'pdf' && state.pdfViewer && (event.ctrlKey || event.metaKey)) {
     if (event.key === '=' || event.key === '+') {
@@ -180,7 +180,7 @@ document.addEventListener('keydown', (event) => {
       return;
     }
   }
-  
+
   // PDF 导航
   if (state.renderMode === 'pdf' && state.pdfViewer) {
     const pdfDirection = { ArrowLeft: -1, PageUp: -1, ArrowRight: 1, PageDown: 1 }[event.key];
@@ -191,7 +191,7 @@ document.addEventListener('keydown', (event) => {
     }
     return;
   }
-  
+
   // MOBI 导航
   if (state.renderMode === 'mobi' && state.mobiView) {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
@@ -203,7 +203,7 @@ document.addEventListener('keydown', (event) => {
     }
     return;
   }
-  
+
   // EPUB 导航
   if (state.rendition) {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
@@ -317,13 +317,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   initConfig();
   initTooltips();
   initSidebar();
-  
+
   // 初始化 i18n
   await initI18n();
-  
+  document.documentElement.classList.add('app-ready');
+
   // 初始化语言切换器
   initLanguageSelector();
-  
+
   loadBookList(openBook);
   void initLocalLibrary(openLocalBook);
 });
@@ -334,9 +335,9 @@ function initLanguageSelector() {
   const languageDropdown = $('#language-dropdown');
   const currentLanguageFlag = $('#current-language-flag');
   const languageOptions = document.querySelectorAll('.language-option');
-  
+
   if (!languageToggle || !languageDropdown) return;
-  
+
   // 更新当前语言显示
   function updateCurrentLanguageDisplay() {
     const currentLang = getCurrentLanguage();
@@ -344,21 +345,21 @@ function initLanguageSelector() {
     if (langConfig && currentLanguageFlag) {
       currentLanguageFlag.src = langConfig.icon;
     }
-    
+
     // 更新选项的选中状态
     languageOptions.forEach(option => {
       const isSelected = option.getAttribute('data-lang') === currentLang;
       option.setAttribute('aria-selected', isSelected);
     });
   }
-  
+
   // 切换下拉菜单显示
   languageToggle.addEventListener('click', () => {
     const isExpanded = languageToggle.getAttribute('aria-expanded') === 'true';
     languageToggle.setAttribute('aria-expanded', !isExpanded);
     languageDropdown.hidden = isExpanded;
   });
-  
+
   // 点击外部关闭下拉菜单
   document.addEventListener('click', (event) => {
     if (!event.target.closest('.language-selector')) {
@@ -366,7 +367,7 @@ function initLanguageSelector() {
       languageDropdown.hidden = true;
     }
   });
-  
+
   // 语言选项点击事件
   languageOptions.forEach(option => {
     option.addEventListener('click', async () => {
@@ -380,7 +381,7 @@ function initLanguageSelector() {
       languageDropdown.hidden = true;
     });
   });
-  
+
   // 初始化显示
   updateCurrentLanguageDisplay();
 }

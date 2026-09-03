@@ -32,6 +32,14 @@ html, body {
   height: 100%;
 }
 
+html:not(.app-ready) body {
+  visibility: hidden;
+}
+
+html.app-ready body {
+  visibility: visible;
+}
+
 body {
   overflow: hidden;
   color: var(--text-primary);
